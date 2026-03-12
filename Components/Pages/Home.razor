@@ -1,0 +1,136 @@
+﻿@page "/"
+
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@inject IAnesthesiaRepository Repository
+@inject NavigationManager Nav
+
+<MudPaper Class="pa-4">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+
+        <MudText Typo="Typo.h5">
+            Patients
+        </MudText>
+
+        <MudSpacer />
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddAnimal">
+
+            Add Animal
+
+        </MudButton>
+
+    </MudStack>
+
+</MudPaper>
+
+
+<MudPaper Class="pa-4 mt-4">
+
+    <MudTextField T="string"
+                  Value="_search"
+                  ValueChanged="OnSearchChanged"
+                  Placeholder="Search by dog name or owner"
+                  Immediate="true"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Class="mb-4" />
+
+    <MudTable Items="_filteredAnimals"
+              Dense="true"
+              Hover="true"
+              Bordered="true"
+              Striped="true">
+
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Species</MudTh>
+            <MudTh>Weight</MudTh>
+            <MudTh>Owner</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+
+            <MudTd DataLabel="Name">
+                <MudLink OnClick="@(() => OpenAnimal(context.Id))">
+                    @context.Name
+                </MudLink>
+            </MudTd>
+
+            <MudTd DataLabel="Species">@context.Species</MudTd>
+
+            <MudTd DataLabel="Weight">@context.Weight</MudTd>
+
+            <MudTd DataLabel="Owner">@context.OwnerName</MudTd>
+
+            <MudTd DataLabel="Actions">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           Size="Size.Small"
+                           OnClick="@(() => EditAnimal(context.Id))">
+                    Edit
+                </MudButton>
+            </MudTd>
+
+        </RowTemplate>
+
+    </MudTable>
+
+</MudPaper>
+
+@code {
+
+    private List<Animal> _animals = new();
+    private List<Animal> _filteredAnimals = new();
+
+    private string _search = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+
+        _animals = await Repository.GetAnimalsAsync();
+        _filteredAnimals = _animals.ToList();
+    }
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value ?? string.Empty;
+        FilterAnimals();
+        await InvokeAsync(StateHasChanged);
+    }
+    private void FilterAnimals()
+    {
+        var text = _search.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _filteredAnimals = _animals.ToList();
+            return;
+        }
+
+        _filteredAnimals = _animals
+            .Where(a =>
+                (!string.IsNullOrWhiteSpace(a.Name) && a.Name.ToLowerInvariant().Contains(text)) ||
+                (!string.IsNullOrWhiteSpace(a.OwnerName) && a.OwnerName.ToLowerInvariant().Contains(text)))
+            .ToList();
+    }
+
+    private void OpenAnimal(Guid animalId)
+    {
+        Nav.NavigateTo($"/animal/{animalId}");
+    }
+
+    private void AddAnimal()
+    {
+        Nav.NavigateTo("/animal/new");
+    }
+    private void EditAnimal(Guid animalId)
+    {
+        Nav.NavigateTo($"/animal/edit/{animalId}");
+    }
+}

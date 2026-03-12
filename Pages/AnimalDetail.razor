@@ -1,0 +1,166 @@
+﻿@page "/animal/{AnimalId:guid}"
+@using MudBlazor
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@inject IAnesthesiaRepository Repository
+@inject NavigationManager Nav
+
+<PageTitle>Animal Detail</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-4">
+
+    @if (_isLoading)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Loading...</MudText>
+        </MudPaper>
+    }
+    else if (_animal is null)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Animal not found.</MudText>
+
+            <MudButton Class="mt-4"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="GoHome">
+                Back to Home
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h4">@_animal.Name</MudText>
+                <MudSpacer />
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           OnClick="EditAnimal">
+                    Edit Animal
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="GoHome">
+                    Back to Home
+                </MudButton>
+            </MudStack>
+
+            <MudDivider Class="my-3" />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.subtitle2">Species</MudText>
+                    <MudText Typo="Typo.body1">@_animal.Species</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.subtitle2">Weight</MudText>
+                    <MudText Typo="Typo.body1">@(_animal.Weight?.ToString() ?? "-")</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.subtitle2">Owner</MudText>
+                    <MudText Typo="Typo.body1">@(_animal.OwnerName ?? "-")</MudText>
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="StartNewSession">
+                    Start New Session
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h5" Class="mb-3">Previous Sessions</MudText>
+
+            @if (_sessions.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No previous sessions yet.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_sessions"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true">
+                    <HeaderContent>
+                        <MudTh>Procedure</MudTh>
+                        <MudTh>Start Time</MudTh>
+                        <MudTh>Action</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Procedure">@context.Procedure</MudTd>
+                        <MudTd DataLabel="Start Time">@context.SessionStartTime.ToString("g")</MudTd>
+                        <MudTd DataLabel="Action">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => OpenSession(context.Id))">
+                                Open
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+
+</MudContainer>
+
+@code {
+    [Parameter] public Guid AnimalId { get; set; }
+
+    private Animal? _animal;
+    private List<AnesthesiaSession> _sessions = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _animal = await Repository.GetAnimalAsync(AnimalId);
+        _sessions = await Repository.GetSessionsByAnimalAsync(AnimalId);
+        _isLoading = false;
+    }
+
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    private void EditAnimal()
+    {
+        Nav.NavigateTo($"/animal/edit/{AnimalId}");
+    }
+
+    private async Task StartNewSession()
+    {
+        if (_animal is null)
+            return;
+
+        var session = new AnesthesiaSession
+        {
+            AnimalId = _animal.Id,
+            Procedure = "",
+            SessionStartTime = DateTime.Now
+        };
+
+        await Repository.SaveSessionAsync(session);
+
+        Nav.NavigateTo($"/session/{session.Id}");
+    }
+
+    private void OpenSession(Guid sessionId)
+    {
+        Nav.NavigateTo($"/session/{sessionId}");
+    }
+}

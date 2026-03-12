@@ -1,0 +1,482 @@
+﻿@page "/session/{SessionId:guid}"
+
+@using MudBlazor
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@using VetAnesthesiaApp.Services.Buckets
+@using VetAnesthesiaApp.Services.Speech
+@using VetAnesthesiaApp.Services.Voice
+
+@inject IAnesthesiaRepository Repository
+@inject IBucketService BucketService
+@inject NavigationManager Nav
+@inject IVetSpeechService SpeechService
+@inject IVoiceCommandApplicationService VoiceCommandApplicationService
+@inject ISnackbar Snackbar
+
+<PageTitle>Session Chart</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    @if (_isLoading)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Loading session...</MudText>
+        </MudPaper>
+    }
+    else if (_session is null)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Session not found.</MudText>
+
+            <MudButton Class="mt-4"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="GoHome">
+                Back to Home
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h5">@(_animal?.Name ?? "Unknown Animal")</MudText>
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="BackToAnimal">
+                    Back
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="StartNewBucketNow">
+                    New Time Bucket
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="@(_isListening ? Color.Error : Color.Success)"
+                           OnClick="ToggleListening">
+                    @(_isListening ? "Stop Listening" : "Start Listening")
+                </MudButton>
+            </MudStack>
+
+            <MudDivider Class="my-3" />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Procedure</MudText>
+                    <MudTextField T="string"
+                                  Value="@_session.Procedure"
+                                  ValueChanged="UpdateProcedure"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined"
+                                  Dense="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Active Bucket</MudText>
+                    <MudText Typo="Typo.body1">
+                        @(_activeBucket?.BucketStartTime.ToString("hh:mm tt") ?? "None")
+                    </MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Listening</MudText>
+                    <MudChip T="string"
+                             Color="@(_isListening ? Color.Success : Color.Default)"
+                             Variant="Variant.Filled">
+                        @(_isListening ? "Listening" : "Off")
+                    </MudChip>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Last Heard</MudText>
+                    <MudText Typo="Typo.body2">@_lastSpeech</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Anesthesia Chart</MudText>
+
+            @if (_buckets.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No time buckets yet. Tap <b>New Time Bucket</b> to begin charting.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_buckets"
+                          Dense="true"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true"
+                          Breakpoint="Breakpoint.Sm">
+
+                    <HeaderContent>
+                        <MudTh>Time</MudTh>
+                        <MudTh>ISO</MudTh>
+                        <MudTh>O2</MudTh>
+                        <MudTh>ETCO2</MudTh>
+                        <MudTh>SpO2</MudTh>
+                        <MudTh>Temp</MudTh>
+                        <MudTh>HR</MudTh>
+                        <MudTh>RR</MudTh>
+                        <MudTh>SYS</MudTh>
+                        <MudTh>DIA</MudTh>
+                        <MudTh>MAP</MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate>
+                        <MudTd DataLabel="Time">
+                            @context.BucketStartTime.ToString("hh:mm tt")
+                        </MudTd>
+
+                        <MudTd DataLabel="ISO">
+                            <MudNumericField T="decimal?"
+                                             Value="@context.IsoPercent"
+                                             ValueChanged="@(async v => await UpdateIso(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="O2">
+                            <MudNumericField T="decimal?"
+                                             Value="@context.OxygenFlowRate"
+                                             ValueChanged="@(async v => await UpdateO2(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="ETCO2">
+                            <MudNumericField T="decimal?"
+                                             Value="@context.Etco2"
+                                             ValueChanged="@(async v => await UpdateEtco2(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="SpO2">
+                            <MudNumericField T="int?"
+                                             Value="@context.Spo2"
+                                             ValueChanged="@(async v => await UpdateSpo2(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="Temp">
+                            <MudNumericField T="decimal?"
+                                             Value="@context.Temperature"
+                                             ValueChanged="@(async v => await UpdateTemperature(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="HR">
+                            <MudNumericField T="int?"
+                                             Value="@context.HeartRate"
+                                             ValueChanged="@(async v => await UpdateHeartRate(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="RR">
+                            <MudNumericField T="int?"
+                                             Value="@context.RespiratoryRate"
+                                             ValueChanged="@(async v => await UpdateRespiratoryRate(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="SYS">
+                            <MudNumericField T="int?"
+                                             Value="@context.SystolicBp"
+                                             ValueChanged="@(async v => await UpdateSystolic(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="DIA">
+                            <MudNumericField T="int?"
+                                             Value="@context.DiastolicBp"
+                                             ValueChanged="@(async v => await UpdateDiastolic(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+
+                        <MudTd DataLabel="MAP">
+                            <MudNumericField T="int?"
+                                             Value="@context.Map"
+                                             ValueChanged="@(async v => await UpdateMap(context, v))"
+                                             Immediate="true"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             HideSpinButtons="true" />
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+    }
+
+</MudContainer>
+
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private AnesthesiaSession? _session;
+    private Animal? _animal;
+    private List<AnesthesiaBucket> _buckets = new();
+    private AnesthesiaBucket? _activeBucket;
+    private bool _isLoading = true;
+
+    private bool _isListening = false;
+    private string _lastSpeech = "-";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+
+        SpeechService.SpeechRecognized += OnSpeechRecognized;
+        SpeechService.ListeningChanged += OnListeningChanged;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _session = await Repository.GetSessionAsync(SessionId);
+
+        if (_session is not null)
+        {
+            _animal = await Repository.GetAnimalAsync(_session.AnimalId);
+            _buckets = await Repository.GetBucketsAsync(SessionId);
+            _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+        }
+
+        _isLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    private void BackToAnimal()
+    {
+        if (_session is not null)
+            Nav.NavigateTo($"/animal/{_session.AnimalId}");
+        else
+            Nav.NavigateTo("/");
+    }
+
+    private async Task StartNewBucketNow()
+    {
+        await BucketService.StartNewBucketAsync(SessionId, DateTime.Now);
+        await LoadAsync();
+    }
+
+    private async Task ToggleListening()
+    {
+        if (_isListening)
+            await SpeechService.StopAsync();
+        else
+            await SpeechService.StartAsync();
+    }
+
+    private async void OnSpeechRecognized(string text)
+    {
+        _lastSpeech = text;
+
+        try
+        {
+            var commands = SplitTranscriptIntoCommands(text);
+
+            foreach (var command in commands)
+            {
+                await VoiceCommandApplicationService.ProcessTranscriptAsync(SessionId, command, DateTime.Now);
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Voice error: {ex.Message}", Severity.Error);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+    private static List<string> SplitTranscriptIntoCommands(string transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+            return new List<string>();
+
+        var normalized = transcript.Trim();
+
+        var fieldStarts = new[]
+        {
+        "heart rate", "hr",
+        "respiratory rate", "resp rate", "rr",
+        "spo2", "sat", "sats", "oxygen saturation", "oxygen sat",
+        "etco2", "co2", "end tidal", "end tidal co2",
+        "iso", "isoflurane", "i sell", "gas", "inhalant",
+        "o2", "oxygen", "oxygen flow",
+        "temperature", "temp",
+        "systolic", "sys",
+        "diastolic", "dia",
+        "map", "mean arterial pressure",
+        "note",
+        "next bucket", "next time", "new time"
+    };
+
+        var indexes = new List<int> { 0 };
+
+        foreach (var field in fieldStarts)
+        {
+            var start = 0;
+            while (true)
+            {
+                var index = normalized.IndexOf(field, start, StringComparison.OrdinalIgnoreCase);
+                if (index <= 0)
+                    break;
+
+                indexes.Add(index);
+                start = index + field.Length;
+            }
+        }
+
+        indexes = indexes.Distinct().OrderBy(x => x).ToList();
+
+        var result = new List<string>();
+
+        for (int i = 0; i < indexes.Count; i++)
+        {
+            var start = indexes[i];
+            var end = i < indexes.Count - 1 ? indexes[i + 1] : normalized.Length;
+            var piece = normalized[start..end].Trim();
+
+            if (!string.IsNullOrWhiteSpace(piece))
+                result.Add(piece);
+        }
+
+        return result;
+    }
+
+    private void OnListeningChanged(bool isListening)
+    {
+        _isListening = isListening;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateIso(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.IsoPercent = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateO2(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.OxygenFlowRate = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateEtco2(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.Etco2 = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateSpo2(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.Spo2 = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateTemperature(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.Temperature = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateHeartRate(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.HeartRate = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateRespiratoryRate(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.RespiratoryRate = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateSystolic(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.SystolicBp = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateDiastolic(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.DiastolicBp = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateMap(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.Map = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task RefreshActiveBucket()
+    {
+        _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SpeechService.SpeechRecognized -= OnSpeechRecognized;
+        SpeechService.ListeningChanged -= OnListeningChanged;
+    }
+    private async Task UpdateProcedure(string value)
+    {
+        if (_session is null)
+            return;
+
+        _session.Procedure = value;
+        await Repository.SaveSessionAsync(_session);
+    }
+}

@@ -1,0 +1,121 @@
+﻿@page "/animal/new"
+@page "/animal/edit/{AnimalId:guid}"
+@using MudBlazor
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@inject IAnesthesiaRepository Repository
+@inject NavigationManager Nav
+
+<PageTitle>@(_isEditMode ? "Edit Animal" : "Add Animal")</PageTitle>
+
+<MudPaper Class="pa-4 mx-auto" Style="max-width:600px;">
+    <MudText Typo="Typo.h5" Class="mb-4">
+        @(_isEditMode ? "Edit Animal" : "Add Animal")
+    </MudText>
+
+    @if (_isLoading)
+    {
+        <MudText>Loading...</MudText>
+    }
+    else
+    {
+        <MudForm @ref="_form">
+            <MudTextField T="string"
+                          Label="Name"
+                          @bind-Value="_animal.Name"
+                          Required="true"
+                          RequiredError="Name is required"
+                          Variant="Variant.Outlined"
+                          Class="mb-3" />
+
+            <MudTextField T="string"
+                          Label="Species"
+                          @bind-Value="_animal.Species"
+                          Required="true"
+                          RequiredError="Species is required"
+                          Variant="Variant.Outlined"
+                          Class="mb-3" />
+
+            <MudNumericField T="decimal?"
+                             Label="Weight"
+                             @bind-Value="_animal.Weight"
+                             Variant="Variant.Outlined"
+                             Class="mb-3" />
+
+            <MudTextField T="string"
+                          Label="Owner Name"
+                          @bind-Value="_animal.OwnerName"
+                          Variant="Variant.Outlined"
+                          Class="mb-4" />
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="SaveAnimal">
+                    Save
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="Cancel">
+                    Cancel
+                </MudButton>
+            </MudStack>
+        </MudForm>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? AnimalId { get; set; }
+
+    private MudForm? _form;
+    private Animal _animal = new();
+    private bool _isEditMode;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+
+        _isEditMode = AnimalId.HasValue && AnimalId.Value != Guid.Empty;
+
+        if (_isEditMode)
+        {
+            var existingAnimal = await Repository.GetAnimalAsync(AnimalId!.Value);
+
+            if (existingAnimal is null)
+            {
+                Nav.NavigateTo("/");
+                return;
+            }
+
+            _animal = existingAnimal;
+        }
+        else
+        {
+            _animal = new Animal();
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAnimal()
+    {
+        if (_form is null)
+            return;
+
+        await _form.Validate();
+
+        if (!_form.IsValid)
+            return;
+
+        await Repository.InitializeAsync();
+        await Repository.SaveAnimalAsync(_animal);
+
+        Nav.NavigateTo($"/animal/{_animal.Id}");
+    }
+
+    private void Cancel()
+    {
+        Nav.NavigateTo("/");
+    }
+}
