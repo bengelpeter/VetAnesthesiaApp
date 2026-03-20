@@ -1,0 +1,697 @@
+﻿@page "/session/{SessionId:guid}"
+
+@using MudBlazor
+@using VetAnesthesiaApp.Components
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@using VetAnesthesiaApp.Services.Buckets
+@using VetAnesthesiaApp.Services.Speech
+@using VetAnesthesiaApp.Services.Voice
+@using MudBlazor.Charts
+
+@inject IAnesthesiaRepository Repository
+@inject IBucketService BucketService
+@inject NavigationManager Nav
+@inject IVetSpeechService SpeechService
+@inject IVoiceCommandApplicationService VoiceCommandApplicationService
+@inject ISnackbar Snackbar
+@inject IVoiceParserService Parser
+<PageTitle>Session Chart</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
+
+    @if (_isLoading)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Loading session...</MudText>
+        </MudPaper>
+    }
+    else if (_session is null)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6">Session not found.</MudText>
+
+            <MudButton Class="mt-4"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="GoHome">
+                Back to Home
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h5">@(_animal?.Name ?? "Unknown Animal")</MudText>
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="BackToAnimal">
+                    Back
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="StartNewBucketNow">
+                    New Time Bucket
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="@(_isListening ? Color.Error : Color.Success)"
+                           OnClick="ToggleListening">
+                    @(_isListening ? "Stop Listening" : "Start Listening")
+                </MudButton>
+            </MudStack>
+
+            <MudDivider Class="my-3" />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Procedure</MudText>
+                    <MudTextField T="string"
+                                  Value="@_session.Procedure"
+                                  ValueChanged="UpdateProcedure"
+                                  Immediate="true"
+                                  Variant="Variant.Outlined"
+                                  Dense="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Active Bucket</MudText>
+                    <MudText Typo="Typo.body1">
+                        @(_activeBucket?.BucketStartTime.ToString("hh:mm tt") ?? "None")
+                    </MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Listening</MudText>
+                    <MudChip T="string"
+                             Color="@(_isListening ? Color.Success : Color.Default)"
+                             Variant="Variant.Filled">
+                        @(_isListening ? "Listening" : "Off")
+                    </MudChip>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Last Heard</MudText>
+                    <MudText Typo="Typo.body2">@_lastSpeech</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Voice Debug</MudText>
+
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Last Heard</MudText>
+                    <MudText Typo="Typo.body1">@_lastSpeech</MudText>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Normalized</MudText>
+                    <MudText Typo="Typo.body1">@_debugNormalized</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Field</MudText>
+                    <MudText Typo="Typo.body1">@_debugField</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Value Text</MudText>
+                    <MudText Typo="Typo.body1">@_debugValueText</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Numeric</MudText>
+                    <MudText Typo="Typo.body1">@_debugNumeric</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Status</MudText>
+                    <MudText Typo="Typo.body1">@_debugStatus</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Anesthesia Chart</MudText>
+
+            @if (_buckets.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No time buckets yet. Tap <b>New Time Bucket</b> to begin charting.
+                </MudAlert>
+            }
+            else
+            {
+                <div style="overflow-x:auto;">
+                    <table class="session-grid">
+                        <thead>
+                            <tr>
+                                <th class="sticky-col field-col">Field</th>
+
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <th class="time-col @(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        @bucket.BucketStartTime.ToString("hh:mm tt")
+                                    </th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr>
+                                <td class="sticky-col field-col">ISO</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="decimal?"
+                                                         Value="@bucket.IsoPercent"
+                                                         ValueChanged="@(async v => await UpdateIso(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">O2</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="decimal?"
+                                                         Value="@bucket.OxygenFlowRate"
+                                                         ValueChanged="@(async v => await UpdateO2(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">ETCO2</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="decimal?"
+                                                         Value="@bucket.Etco2"
+                                                         ValueChanged="@(async v => await UpdateEtco2(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">SpO2</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.Spo2"
+                                                         ValueChanged="@(async v => await UpdateSpo2(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">Temp</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="decimal?"
+                                                         Value="@bucket.Temperature"
+                                                         ValueChanged="@(async v => await UpdateTemperature(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">HR</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.HeartRate"
+                                                         ValueChanged="@(async v => await UpdateHeartRate(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">RR</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.RespiratoryRate"
+                                                         ValueChanged="@(async v => await UpdateRespiratoryRate(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">SYS</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.SystolicBp"
+                                                         ValueChanged="@(async v => await UpdateSystolic(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">DIA</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.DiastolicBp"
+                                                         ValueChanged="@(async v => await UpdateDiastolic(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+
+                            <tr>
+                                <td class="sticky-col field-col">MAP</td>
+                                @foreach (var bucket in _buckets)
+                                {
+                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                        <MudNumericField T="int?"
+                                                         Value="@bucket.Map"
+                                                         ValueChanged="@(async v => await UpdateMap(bucket, v))"
+                                                         Immediate="true"
+                                                         Variant="Variant.Outlined"
+                                                         Dense="true"
+                                                         HideSpinButtons="true" />
+                                    </td>
+                                }
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </MudPaper>
+
+      
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-3">Vitals Trend</MudText>
+
+        @if (_buckets.Count > 0)
+        {
+            <AnesthesiaPointGraph Buckets="_buckets"
+                                  ActiveBucketId="_activeBucket?.Id"
+                                  Height="320"
+                                  MinValue="0"
+                                  MaxValue="200"
+                                  YSteps="10" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Add at least one bucket to see the trend chart.
+            </MudAlert>
+        }
+    }
+
+</MudContainer>
+<style>
+    .session-grid {
+        border-collapse: collapse;
+        min-width: 1050px;
+        width: 100%;
+        background: white;
+    }
+
+        .session-grid th,
+        .session-grid td {
+            border: 1px solid #dcdcdc;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+            min-width: 120px;
+        }
+
+        .session-grid thead th {
+            background: #f5f7fb;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+    .field-col {
+        min-width: 90px !important;
+        font-weight: 600;
+        background: #f9fafb;
+        text-align: left !important;
+    }
+
+    .sticky-col {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #f9fafb;
+    }
+
+    .session-grid thead .sticky-col {
+        z-index: 3;
+        background: #eef3fb;
+    }
+
+    .time-col {
+        min-width: 125px;
+    }
+
+    .active-bucket-col {
+        background-color: #fff7cc !important;
+    }
+</style>
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private AnesthesiaSession? _session;
+    private Animal? _animal;
+    private List<AnesthesiaBucket> _buckets = new();
+    private AnesthesiaBucket? _activeBucket;
+    private bool _isLoading = true;
+
+    private bool _isListening = false;
+    private string _lastSpeech = "-";
+
+    private string _debugNormalized = "-";
+    private string _debugField = "-";
+    private string _debugValueText = "-";
+    private string _debugNumeric = "-";
+    private string _debugStatus = "-";
+    private List<ChartSeries<double>> _vitalsSeries = new();
+    private string[] _vitalsXAxisLabels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+
+        SpeechService.SpeechRecognized += OnSpeechRecognized;
+        SpeechService.ListeningChanged += OnListeningChanged;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _session = await Repository.GetSessionAsync(SessionId);
+
+        if (_session is not null)
+        {
+            _animal = await Repository.GetAnimalAsync(_session.AnimalId);
+            _buckets = await Repository.GetBucketsAsync(SessionId);
+            _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+        }
+
+        _isLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+    private void BuildVitalsChart()
+    {
+        _vitalsXAxisLabels = _buckets
+            .Select(b => b.BucketStartTime.ToString("HH:mm"))
+            .ToArray();
+
+        _vitalsSeries = new List<ChartSeries<double>>
+        {
+            new ChartSeries<double>
+            {
+                Name = "HR",
+                Data = _buckets.Select(b => b.HeartRate.HasValue ? (double)b.HeartRate.Value : double.NaN).ToList()
+            },
+            new ChartSeries<double>
+            {
+                Name = "RR",
+                Data = _buckets.Select(b => b.RespiratoryRate.HasValue ? (double)b.RespiratoryRate.Value : double.NaN).ToList()
+            },
+            new ChartSeries<double>
+            {
+                Name = "SYS",
+                Data = _buckets.Select(b => b.SystolicBp.HasValue ? (double)b.SystolicBp.Value : double.NaN).ToList()
+            },
+            new ChartSeries<double>
+            {
+                Name = "DIA",
+                Data = _buckets.Select(b => b.DiastolicBp.HasValue ? (double)b.DiastolicBp.Value : double.NaN).ToList()
+            },
+            new ChartSeries<double>
+            {
+                Name = "MAP",
+                Data = _buckets.Select(b => b.Map.HasValue ? (double)b.Map.Value : double.NaN).ToList()
+            }
+        };
+    }
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    private void BackToAnimal()
+    {
+        if (_session is not null)
+            Nav.NavigateTo($"/animal/{_session.AnimalId}");
+        else
+            Nav.NavigateTo("/");
+    }
+
+    private async Task StartNewBucketNow()
+    {
+        await BucketService.StartNewBucketAsync(SessionId, DateTime.Now);
+        await LoadAsync();
+    }
+
+    private async Task ToggleListening()
+    {
+        if (_isListening)
+            await SpeechService.StopAsync();
+        else
+            await SpeechService.StartAsync();
+    }
+
+    private async void OnSpeechRecognized(string text)
+    {
+        _lastSpeech = text;
+
+        var parseResult = Parser.Parse(text, DateTime.Now);
+
+        _debugNormalized = parseResult.NormalizedTranscript ?? "-";
+        _debugField = parseResult.FieldKey ?? "-";
+        _debugValueText = parseResult.ParsedValueText ?? "-";
+        _debugNumeric = parseResult.ParsedNumericValue?.ToString() ?? "-";
+        _debugStatus = parseResult.StatusMessage ?? "-";
+
+        if (parseResult.IsSuccess)
+        {
+            try
+            {
+                await VoiceCommandApplicationService.ProcessTranscriptAsync(SessionId, text, DateTime.Now);
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Voice apply error: {ex.Message}", Severity.Error);
+            }
+        }
+        else
+        {
+            Snackbar.Add($"Voice parse failed: {_debugStatus}", Severity.Warning);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+    private static List<string> SplitTranscriptIntoCommands(string transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+            return new List<string>();
+
+        var normalized = transcript.Trim();
+
+        var fieldStarts = new[]
+        {
+        "heart rate", "hr",
+        "respiratory rate", "resp rate", "rr",
+        "spo2", "sat", "sats", "oxygen saturation", "oxygen sat",
+        "etco2", "co2", "end tidal", "end tidal co2",
+        "iso", "isoflurane", "i sell", "gas", "inhalant",
+        "o2", "oxygen", "oxygen flow",
+        "temperature", "temp",
+        "systolic", "sys",
+        "diastolic", "dia",
+        "map", "mean arterial pressure",
+        "note",
+        "next bucket", "next time", "new time"
+    };
+
+        var indexes = new List<int> { 0 };
+
+        foreach (var field in fieldStarts)
+        {
+            var start = 0;
+            while (true)
+            {
+                var index = normalized.IndexOf(field, start, StringComparison.OrdinalIgnoreCase);
+                if (index <= 0)
+                    break;
+
+                indexes.Add(index);
+                start = index + field.Length;
+            }
+        }
+
+        indexes = indexes.Distinct().OrderBy(x => x).ToList();
+
+        var result = new List<string>();
+
+        for (int i = 0; i < indexes.Count; i++)
+        {
+            var start = indexes[i];
+            var end = i < indexes.Count - 1 ? indexes[i + 1] : normalized.Length;
+            var piece = normalized[start..end].Trim();
+
+            if (!string.IsNullOrWhiteSpace(piece))
+                result.Add(piece);
+        }
+
+        return result;
+    }
+
+    private void OnListeningChanged(bool isListening)
+    {
+        _isListening = isListening;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateIso(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.IsoPercent = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateO2(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.OxygenFlowRate = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateEtco2(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.Etco2 = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateSpo2(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.Spo2 = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateTemperature(AnesthesiaBucket bucket, decimal? value)
+    {
+        bucket.Temperature = value;
+        await Repository.SaveBucketAsync(bucket);
+        await RefreshActiveBucket();
+    }
+
+    private async Task UpdateHeartRate(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.HeartRate = value;
+        await SaveBucketAndRefresh(bucket);
+    }
+
+    private async Task UpdateRespiratoryRate(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.RespiratoryRate = value;
+        await SaveBucketAndRefresh(bucket);
+    }
+
+    private async Task UpdateSystolic(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.SystolicBp = value;
+        await SaveBucketAndRefresh(bucket);
+    }
+
+    private async Task UpdateDiastolic(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.DiastolicBp = value;
+        await SaveBucketAndRefresh(bucket);
+    }
+
+    private async Task UpdateMap(AnesthesiaBucket bucket, int? value)
+    {
+        bucket.Map = value;
+        await SaveBucketAndRefresh(bucket);
+    }
+
+    private async Task RefreshActiveBucket()
+    {
+        _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SaveBucketAndRefresh(AnesthesiaBucket bucket)
+    {
+        await Repository.SaveBucketAsync(bucket);
+        BuildVitalsChart();
+        await RefreshActiveBucket();
+    }
+
+    public void Dispose()
+    {
+        SpeechService.SpeechRecognized -= OnSpeechRecognized;
+        SpeechService.ListeningChanged -= OnListeningChanged;
+    }
+    private async Task UpdateProcedure(string value)
+    {
+        if (_session is null)
+            return;
+
+        _session.Procedure = value;
+        await Repository.SaveSessionAsync(_session);
+    }
+}
