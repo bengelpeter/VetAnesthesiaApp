@@ -5,9 +5,10 @@ using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
 using VetAnesthesiaApp.Services.Buckets;
 using VetAnesthesiaApp.Services.Data;
+using VetAnesthesiaApp.Services.Pdf;
+using QuestPDF.Infrastructure;
 using VetAnesthesiaApp.Services.Speech;
 using VetAnesthesiaApp.Services.Voice;
-
 namespace VetAnesthesiaApp
 {
     public static class MauiProgram
@@ -21,6 +22,7 @@ namespace VetAnesthesiaApp
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
+                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 })
                 .UseMauiCommunityToolkit();
 
@@ -34,7 +36,10 @@ namespace VetAnesthesiaApp
             builder.Services.AddBlazorWebViewDeveloperTools();
             builder.Logging.AddDebug();
 #endif
+            QuestPDF.Settings.License = LicenseType.Community;
 
+
+            builder.Services.AddScoped<IPdfExportService, PdfExportService>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 
             builder.Services.AddScoped<IVoiceParserService, VoiceParserService>();
@@ -44,6 +49,7 @@ namespace VetAnesthesiaApp
 
             builder.Services.AddSingleton<IAnesthesiaRepository, SqliteAnesthesiaRepository>();
             var app = builder.Build();
+            InitializeDatabase(app);
             return app;
         }
 
@@ -57,7 +63,7 @@ namespace VetAnesthesiaApp
             }
             catch (Exception ex)
             {
-
+                System.Diagnostics.Debug.WriteLine($"Database initialization failed: {ex}");
             }
           
         }

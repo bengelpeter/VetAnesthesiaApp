@@ -1,13 +1,14 @@
-﻿@page "/session/{SessionId:guid}"
+@page "/session/{SessionId:guid}"
+@implements IAsyncDisposable
 
 @using MudBlazor
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
 @using VetAnesthesiaApp.Services.Data
 @using VetAnesthesiaApp.Services.Buckets
+@using VetAnesthesiaApp.Services.Pdf
 @using VetAnesthesiaApp.Services.Speech
 @using VetAnesthesiaApp.Services.Voice
-@using MudBlazor.Charts
 
 @inject IAnesthesiaRepository Repository
 @inject IBucketService BucketService
@@ -16,6 +17,8 @@
 @inject IVoiceCommandApplicationService VoiceCommandApplicationService
 @inject ISnackbar Snackbar
 @inject IVoiceParserService Parser
+@inject IPdfExportService PdfExportService
+
 <PageTitle>Session Chart</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
@@ -64,6 +67,12 @@
                 </MudButton>
             </MudStack>
 
+            <MudButton OnClick="ExportPdf"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary">
+                Export PDF
+            </MudButton>
+
             <MudDivider Class="my-3" />
 
             <MudGrid>
@@ -74,7 +83,7 @@
                                   ValueChanged="UpdateProcedure"
                                   Immediate="true"
                                   Variant="Variant.Outlined"
-                                  Dense="true" />
+                                  Margin="Margin.Dense" />
                 </MudItem>
 
                 <MudItem xs="12" sm="6" md="3">
@@ -136,6 +145,53 @@
             </MudGrid>
         </MudPaper>
 
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Procedure Notes</MudText>
+
+            @if (_noteEntries.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No bucket notes recorded yet.
+                </MudAlert>
+            }
+            else
+            {
+                @foreach (var note in _noteEntries)
+                {
+                    <MudPaper Class="pa-3 mb-2">
+                        <MudText Typo="Typo.subtitle2">@note.BucketStartTime.ToString("hh:mm tt")</MudText>
+                        <MudText Typo="Typo.body2">@note.Notes</MudText>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Recent Voice Activity</MudText>
+
+            @if (_recentVoiceLogs.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    No voice attempts logged yet.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_recentVoiceLogs" Dense="true" Hover="true" Bordered="true" Striped="true">
+                    <HeaderContent>
+                        <MudTh>Time</MudTh>
+                        <MudTh>Transcript</MudTh>
+                        <MudTh>Status</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Time">@context.SpokenAt.ToString("hh:mm:ss tt")</MudTd>
+                        <MudTd DataLabel="Transcript">@context.RawTranscript</MudTd>
+                        <MudTd DataLabel="Status">@context.StatusMessage</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+
         <MudPaper Class="pa-4">
             <MudText Typo="Typo.h6" Class="mb-3">Anesthesia Chart</MudText>
 
@@ -173,7 +229,7 @@
                                                          ValueChanged="@(async v => await UpdateIso(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -189,7 +245,7 @@
                                                          ValueChanged="@(async v => await UpdateO2(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -205,7 +261,7 @@
                                                          ValueChanged="@(async v => await UpdateEtco2(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -221,7 +277,7 @@
                                                          ValueChanged="@(async v => await UpdateSpo2(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -237,7 +293,7 @@
                                                          ValueChanged="@(async v => await UpdateTemperature(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -253,7 +309,7 @@
                                                          ValueChanged="@(async v => await UpdateHeartRate(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -269,7 +325,7 @@
                                                          ValueChanged="@(async v => await UpdateRespiratoryRate(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -285,7 +341,7 @@
                                                          ValueChanged="@(async v => await UpdateSystolic(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -301,7 +357,7 @@
                                                          ValueChanged="@(async v => await UpdateDiastolic(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -317,7 +373,7 @@
                                                          ValueChanged="@(async v => await UpdateMap(bucket, v))"
                                                          Immediate="true"
                                                          Variant="Variant.Outlined"
-                                                         Dense="true"
+                                                         Margin="Margin.Dense"
                                                          HideSpinButtons="true" />
                                     </td>
                                 }
@@ -327,8 +383,6 @@
                 </div>
             }
         </MudPaper>
-
-      
 
         <MudDivider Class="my-4" />
 
@@ -352,6 +406,7 @@
     }
 
 </MudContainer>
+
 <style>
     .session-grid {
         border-collapse: collapse;
@@ -404,6 +459,7 @@
         background-color: #fff7cc !important;
     }
 </style>
+
 @code {
     [Parameter] public Guid SessionId { get; set; }
 
@@ -411,18 +467,17 @@
     private Animal? _animal;
     private List<AnesthesiaBucket> _buckets = new();
     private AnesthesiaBucket? _activeBucket;
+    private List<VoiceEntryLog> _recentVoiceLogs = new();
+    private List<AnesthesiaBucket> _noteEntries = new();
     private bool _isLoading = true;
-
-    private bool _isListening = false;
+    private bool _isListening;
+    private bool _isDisposed;
     private string _lastSpeech = "-";
-
     private string _debugNormalized = "-";
     private string _debugField = "-";
     private string _debugValueText = "-";
     private string _debugNumeric = "-";
     private string _debugStatus = "-";
-    private List<ChartSeries<double>> _vitalsSeries = new();
-    private string[] _vitalsXAxisLabels = Array.Empty<string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -434,55 +489,50 @@
         await LoadAsync();
     }
 
+    private async Task ExportPdf()
+    {
+        try
+        {
+            var filePath = await PdfExportService.ExportSessionPdfAsync(SessionId);
+            Snackbar.Add($"PDF saved: {filePath}", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"PDF export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
     private async Task LoadAsync()
     {
         _session = await Repository.GetSessionAsync(SessionId);
 
-        if (_session is not null)
+        if (_session is null)
         {
-            _animal = await Repository.GetAnimalAsync(_session.AnimalId);
-            _buckets = await Repository.GetBucketsAsync(SessionId);
-            _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+            _animal = null;
+            _buckets = new();
+            _activeBucket = null;
+            _recentVoiceLogs = new();
+            _noteEntries = new();
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
         }
+
+        _animal = await Repository.GetAnimalAsync(_session.AnimalId);
+        _buckets = await Repository.GetBucketsAsync(SessionId);
+        _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
+        _recentVoiceLogs = (await Repository.GetVoiceLogsAsync(SessionId))
+            .Take(8)
+            .ToList();
+        _noteEntries = _buckets
+            .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
+            .OrderByDescending(x => x.BucketStartTime)
+            .ToList();
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
     }
-    private void BuildVitalsChart()
-    {
-        _vitalsXAxisLabels = _buckets
-            .Select(b => b.BucketStartTime.ToString("HH:mm"))
-            .ToArray();
 
-        _vitalsSeries = new List<ChartSeries<double>>
-        {
-            new ChartSeries<double>
-            {
-                Name = "HR",
-                Data = _buckets.Select(b => b.HeartRate.HasValue ? (double)b.HeartRate.Value : double.NaN).ToList()
-            },
-            new ChartSeries<double>
-            {
-                Name = "RR",
-                Data = _buckets.Select(b => b.RespiratoryRate.HasValue ? (double)b.RespiratoryRate.Value : double.NaN).ToList()
-            },
-            new ChartSeries<double>
-            {
-                Name = "SYS",
-                Data = _buckets.Select(b => b.SystolicBp.HasValue ? (double)b.SystolicBp.Value : double.NaN).ToList()
-            },
-            new ChartSeries<double>
-            {
-                Name = "DIA",
-                Data = _buckets.Select(b => b.DiastolicBp.HasValue ? (double)b.DiastolicBp.Value : double.NaN).ToList()
-            },
-            new ChartSeries<double>
-            {
-                Name = "MAP",
-                Data = _buckets.Select(b => b.Map.HasValue ? (double)b.Map.Value : double.NaN).ToList()
-            }
-        };
-    }
     private void GoHome()
     {
         Nav.NavigateTo("/");
@@ -504,188 +554,182 @@
 
     private async Task ToggleListening()
     {
-        if (_isListening)
-            await SpeechService.StopAsync();
-        else
-            await SpeechService.StartAsync();
-    }
-
-    private async void OnSpeechRecognized(string text)
-    {
-        _lastSpeech = text;
-
-        var parseResult = Parser.Parse(text, DateTime.Now);
-
-        _debugNormalized = parseResult.NormalizedTranscript ?? "-";
-        _debugField = parseResult.FieldKey ?? "-";
-        _debugValueText = parseResult.ParsedValueText ?? "-";
-        _debugNumeric = parseResult.ParsedNumericValue?.ToString() ?? "-";
-        _debugStatus = parseResult.StatusMessage ?? "-";
-
-        if (parseResult.IsSuccess)
+        try
         {
-            try
+            if (_isListening)
             {
-                await VoiceCommandApplicationService.ProcessTranscriptAsync(SessionId, text, DateTime.Now);
-                await LoadAsync();
+                await SpeechService.StopAsync();
+                _debugStatus = "Stopped listening.";
             }
-            catch (Exception ex)
+            else
             {
-                Snackbar.Add($"Voice apply error: {ex.Message}", Severity.Error);
+                await SpeechService.StartAsync();
+                _debugStatus = "Listening for voice commands.";
             }
         }
-        else
+        catch (Exception ex)
         {
-            Snackbar.Add($"Voice parse failed: {_debugStatus}", Severity.Warning);
+            _debugStatus = ex.Message;
+            Snackbar.Add($"Voice start failed: {ex.Message}", Severity.Error);
         }
 
         await InvokeAsync(StateHasChanged);
     }
-    private static List<string> SplitTranscriptIntoCommands(string transcript)
+
+    private async void OnSpeechRecognized(string text)
     {
-        if (string.IsNullOrWhiteSpace(transcript))
-            return new List<string>();
+        if (_isDisposed)
+            return;
 
-        var normalized = transcript.Trim();
+        _lastSpeech = text;
 
-        var fieldStarts = new[]
+        var spokenAt = DateTime.Now;
+        var commands = VoiceTranscriptSegmenter.Split(text);
+        var appliedCount = 0;
+        var failedMessages = new List<string>();
+
+        foreach (var command in commands)
         {
-        "heart rate", "hr",
-        "respiratory rate", "resp rate", "rr",
-        "spo2", "sat", "sats", "oxygen saturation", "oxygen sat",
-        "etco2", "co2", "end tidal", "end tidal co2",
-        "iso", "isoflurane", "i sell", "gas", "inhalant",
-        "o2", "oxygen", "oxygen flow",
-        "temperature", "temp",
-        "systolic", "sys",
-        "diastolic", "dia",
-        "map", "mean arterial pressure",
-        "note",
-        "next bucket", "next time", "new time"
-    };
+            var parseResult = Parser.Parse(command, spokenAt);
 
-        var indexes = new List<int> { 0 };
+            _debugNormalized = parseResult.NormalizedTranscript ?? "-";
+            _debugField = parseResult.FieldKey ?? "-";
+            _debugValueText = parseResult.ParsedValueText ?? "-";
+            _debugNumeric = parseResult.ParsedNumericValue?.ToString() ?? "-";
+            _debugStatus = parseResult.StatusMessage ?? "-";
 
-        foreach (var field in fieldStarts)
-        {
-            var start = 0;
-            while (true)
+            try
             {
-                var index = normalized.IndexOf(field, start, StringComparison.OrdinalIgnoreCase);
-                if (index <= 0)
-                    break;
+                var log = await VoiceCommandApplicationService.ProcessTranscriptAsync(SessionId, command, spokenAt);
 
-                indexes.Add(index);
-                start = index + field.Length;
+                if (log.Applied)
+                {
+                    appliedCount++;
+                }
+                else
+                {
+                    failedMessages.Add($"{command}: {log.StatusMessage}");
+                    Snackbar.Add($"Voice command not applied: {log.StatusMessage}", Severity.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                failedMessages.Add($"{command}: {ex.Message}");
+                Snackbar.Add($"Voice apply error: {ex.Message}", Severity.Error);
             }
         }
 
-        indexes = indexes.Distinct().OrderBy(x => x).ToList();
+        if (appliedCount > 0)
+            Snackbar.Add($"Applied {appliedCount} voice command(s).", Severity.Success);
 
-        var result = new List<string>();
+        if (failedMessages.Count > 0)
+            _debugStatus = string.Join(" | ", failedMessages);
 
-        for (int i = 0; i < indexes.Count; i++)
-        {
-            var start = indexes[i];
-            var end = i < indexes.Count - 1 ? indexes[i + 1] : normalized.Length;
-            var piece = normalized[start..end].Trim();
-
-            if (!string.IsNullOrWhiteSpace(piece))
-                result.Add(piece);
-        }
-
-        return result;
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void OnListeningChanged(bool isListening)
     {
+        if (_isDisposed)
+            return;
+
         _isListening = isListening;
         _ = InvokeAsync(StateHasChanged);
     }
 
     private async Task UpdateIso(AnesthesiaBucket bucket, decimal? value)
     {
-        bucket.IsoPercent = value;
-        await Repository.SaveBucketAsync(bucket);
-        await RefreshActiveBucket();
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.IsoPercent, value);
     }
 
     private async Task UpdateO2(AnesthesiaBucket bucket, decimal? value)
     {
-        bucket.OxygenFlowRate = value;
-        await Repository.SaveBucketAsync(bucket);
-        await RefreshActiveBucket();
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.OxygenFlowRate, value);
     }
 
     private async Task UpdateEtco2(AnesthesiaBucket bucket, decimal? value)
     {
-        bucket.Etco2 = value;
-        await Repository.SaveBucketAsync(bucket);
-        await RefreshActiveBucket();
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.Etco2, value);
     }
 
     private async Task UpdateSpo2(AnesthesiaBucket bucket, int? value)
     {
-        bucket.Spo2 = value;
-        await Repository.SaveBucketAsync(bucket);
-        await RefreshActiveBucket();
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.Spo2, value);
     }
 
     private async Task UpdateTemperature(AnesthesiaBucket bucket, decimal? value)
     {
-        bucket.Temperature = value;
-        await Repository.SaveBucketAsync(bucket);
-        await RefreshActiveBucket();
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.Temperature, value);
     }
 
     private async Task UpdateHeartRate(AnesthesiaBucket bucket, int? value)
     {
-        bucket.HeartRate = value;
-        await SaveBucketAndRefresh(bucket);
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.HeartRate, value);
     }
 
     private async Task UpdateRespiratoryRate(AnesthesiaBucket bucket, int? value)
     {
-        bucket.RespiratoryRate = value;
-        await SaveBucketAndRefresh(bucket);
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.RespiratoryRate, value);
     }
 
     private async Task UpdateSystolic(AnesthesiaBucket bucket, int? value)
     {
-        bucket.SystolicBp = value;
-        await SaveBucketAndRefresh(bucket);
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.SystolicBp, value);
     }
 
     private async Task UpdateDiastolic(AnesthesiaBucket bucket, int? value)
     {
-        bucket.DiastolicBp = value;
-        await SaveBucketAndRefresh(bucket);
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.DiastolicBp, value);
     }
 
     private async Task UpdateMap(AnesthesiaBucket bucket, int? value)
     {
-        bucket.Map = value;
-        await SaveBucketAndRefresh(bucket);
+        await SaveFieldValueAsync(bucket.Id, AnesthesiaFieldKeys.Map, value);
     }
 
     private async Task RefreshActiveBucket()
     {
         _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
-        await InvokeAsync(StateHasChanged);
+        await LoadAsync();
     }
 
-    private async Task SaveBucketAndRefresh(AnesthesiaBucket bucket)
+    private async Task SaveFieldValueAsync(Guid bucketId, string fieldKey, decimal? value)
     {
-        await Repository.SaveBucketAsync(bucket);
-        BuildVitalsChart();
-        await RefreshActiveBucket();
+        try
+        {
+            if (value.HasValue)
+                await BucketService.ApplyFieldValueAsync(bucketId, fieldKey, value.Value);
+            else
+                await BucketService.ClearFieldAsync(bucketId, fieldKey);
+
+            await RefreshActiveBucket();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            await LoadAsync();
+        }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        _isDisposed = true;
         SpeechService.SpeechRecognized -= OnSpeechRecognized;
         SpeechService.ListeningChanged -= OnListeningChanged;
+
+        if (!SpeechService.IsListening)
+            return;
+
+        try
+        {
+            await SpeechService.StopAsync();
+        }
+        catch
+        {
+        }
     }
+
     private async Task UpdateProcedure(string value)
     {
         if (_session is null)

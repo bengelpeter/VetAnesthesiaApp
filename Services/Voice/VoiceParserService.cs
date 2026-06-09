@@ -138,7 +138,7 @@ public class VoiceParserService : IVoiceParserService
         normalized = normalized.Replace("e t c o 2", "etco2");
         normalized = normalized.Replace("e t c o too", "etco2");
 
-        normalized = normalized.Replace("oxygen sat", "oxygen saturation");
+        normalized = Regex.Replace(normalized, @"\boxygen sat\b", "oxygen saturation");
         normalized = normalized.Replace("pulse ox", "pulse ox");
 
         normalized = normalized.Replace("dye ", "dia ");

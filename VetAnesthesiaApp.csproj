@@ -73,6 +73,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.50" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.4" />
         <PackageReference Include="MudBlazor" Version="9.1.0" />
+        <PackageReference Include="QuestPDF" Version="2026.5.0" />
         <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
     </ItemGroup>
 
@@ -80,6 +81,13 @@
       <None Update="Platforms\Windows\Package.appxmanifest">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="VetAnesthesiaApp.Tests\**\*.cs" />
+      <EmbeddedResource Remove="VetAnesthesiaApp.Tests\**\*" />
+      <MauiXaml Remove="VetAnesthesiaApp.Tests\**\*" />
+      <None Remove="VetAnesthesiaApp.Tests\**\*" />
     </ItemGroup>
 
 </Project>

@@ -1,0 +1,67 @@
+﻿@page "/session/{SessionId:guid}/print"
+
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@using VetAnesthesiaApp.Components
+
+@inject IAnesthesiaRepository Repository
+
+@if (_session == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="print-container">
+
+        <h2>@_animal?.Name</h2>
+        <p>Owner: @_animal?.OwnerName</p>
+        <p>Procedure: @_session.Procedure</p>
+        <p>Start: @_session.SessionStartTime.ToString("g")</p>
+
+        <!-- TABLE -->
+        <!-- reuse your transposed table here -->
+        <!-- GRAPH -->
+        <AnesthesiaPointGraph Buckets="_buckets"
+                              Height="300"
+                              MinValue="0"
+                              MaxValue="200" />
+
+    </div>
+}
+<style>
+    @@media print {
+        body {
+            margin: 0;
+        }
+
+        .print-container {
+            width: 100%;
+            padding: 10px;
+        }
+
+        button {
+            display: none;                   
+        }
+    }
+</style>
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private AnesthesiaSession? _session;
+    private Animal? _animal;
+    private List<AnesthesiaBucket> _buckets = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+
+        _session = await Repository.GetSessionAsync(SessionId);
+
+        if (_session != null)
+        {
+            _animal = await Repository.GetAnimalAsync(_session.AnimalId);
+            _buckets = await Repository.GetBucketsAsync(SessionId);
+        }
+    }
+}

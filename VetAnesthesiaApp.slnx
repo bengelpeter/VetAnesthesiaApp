@@ -2,4 +2,5 @@
   <Project Path="VetAnesthesiaApp.csproj">
     <Deploy Solution="Debug|*" />
   </Project>
+  <Project Path="VetAnesthesiaApp.Tests\VetAnesthesiaApp.Tests.csproj" />
 </Solution>

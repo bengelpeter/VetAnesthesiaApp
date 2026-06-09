@@ -37,6 +37,8 @@ public class BucketService : IBucketService
             ?? throw new InvalidOperationException("Session not found.");
 
         var current = await GetActiveBucketAsync(sessionId);
+        AnesthesiaFieldValidator.ValidateBucketStartTime(bucketStartTime, current);
+
         if (current is not null && current.BucketEndTime is null)
         {
             current.BucketEndTime = bucketStartTime;
@@ -60,29 +62,30 @@ public class BucketService : IBucketService
     {
         var bucket = await _repository.GetBucketAsync(bucketId)
             ?? throw new InvalidOperationException("Bucket not found.");
+        var normalizedValue = AnesthesiaFieldValidator.ValidateAndNormalizeValue(fieldKey, value);
 
         switch (fieldKey)
         {
             case AnesthesiaFieldKeys.IsoPercent:
-                bucket.IsoPercent = value; break;
+                bucket.IsoPercent = normalizedValue; break;
             case AnesthesiaFieldKeys.OxygenFlowRate:
-                bucket.OxygenFlowRate = value; break;
+                bucket.OxygenFlowRate = normalizedValue; break;
             case AnesthesiaFieldKeys.Etco2:
-                bucket.Etco2 = value; break;
+                bucket.Etco2 = normalizedValue; break;
             case AnesthesiaFieldKeys.Spo2:
-                bucket.Spo2 = (int)value; break;
+                bucket.Spo2 = (int)normalizedValue; break;
             case AnesthesiaFieldKeys.Temperature:
-                bucket.Temperature = value; break;
+                bucket.Temperature = normalizedValue; break;
             case AnesthesiaFieldKeys.HeartRate:
-                bucket.HeartRate = (int)value; break;
+                bucket.HeartRate = (int)normalizedValue; break;
             case AnesthesiaFieldKeys.RespiratoryRate:
-                bucket.RespiratoryRate = (int)value; break;
+                bucket.RespiratoryRate = (int)normalizedValue; break;
             case AnesthesiaFieldKeys.SystolicBp:
-                bucket.SystolicBp = (int)value; break;
+                bucket.SystolicBp = (int)normalizedValue; break;
             case AnesthesiaFieldKeys.DiastolicBp:
-                bucket.DiastolicBp = (int)value; break;
+                bucket.DiastolicBp = (int)normalizedValue; break;
             case AnesthesiaFieldKeys.Map:
-                bucket.Map = (int)value; break;
+                bucket.Map = (int)normalizedValue; break;
             default:
                 throw new InvalidOperationException($"Unsupported field key: {fieldKey}");
         }
@@ -118,10 +121,11 @@ public class BucketService : IBucketService
     {
         var bucket = await _repository.GetBucketAsync(bucketId)
             ?? throw new InvalidOperationException("Bucket not found.");
+        var normalizedNote = AnesthesiaFieldValidator.NormalizeNote(noteText);
 
         bucket.Notes = string.IsNullOrWhiteSpace(bucket.Notes)
-            ? noteText
-            : $"{bucket.Notes}\n{noteText}";
+            ? normalizedNote
+            : $"{bucket.Notes}\n{normalizedNote}";
 
         await _repository.SaveBucketAsync(bucket);
     }

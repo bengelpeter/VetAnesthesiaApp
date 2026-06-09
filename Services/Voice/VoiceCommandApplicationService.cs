@@ -44,34 +44,54 @@ public class VoiceCommandApplicationService : IVoiceCommandApplicationService
             return log;
         }
 
-        switch (result.CommandType)
+        try
         {
-            case VoiceCommandType.FieldValue:
-                {
-                    var bucket = await _bucketService.GetOrCreateActiveBucketAsync(sessionId, spokenAt);
-                    await _bucketService.ApplyFieldValueAsync(bucket.Id, result.FieldKey!, result.ParsedNumericValue!.Value);
-                    log.BucketId = bucket.Id;
-                    log.Applied = true;
-                    log.StatusMessage = $"{result.FieldKey} applied to active bucket.";
-                    break;
-                }
-            case VoiceCommandType.Note:
-                {
-                    var bucket = await _bucketService.GetOrCreateActiveBucketAsync(sessionId, spokenAt);
-                    await _bucketService.AppendNoteAsync(bucket.Id, result.NoteText!);
-                    log.BucketId = bucket.Id;
-                    log.Applied = true;
-                    log.StatusMessage = "Note applied to active bucket.";
-                    break;
-                }
-            case VoiceCommandType.NextBucket:
-                {
-                    var bucket = await _bucketService.StartNewBucketAsync(sessionId, spokenAt);
-                    log.BucketId = bucket.Id;
-                    log.Applied = true;
-                    log.StatusMessage = "New bucket started.";
-                    break;
-                }
+            switch (result.CommandType)
+            {
+                case VoiceCommandType.FieldValue:
+                    {
+                        var bucket = await _bucketService.GetOrCreateActiveBucketAsync(sessionId, spokenAt);
+                        await _bucketService.ApplyFieldValueAsync(bucket.Id, result.FieldKey!, result.ParsedNumericValue!.Value);
+                        log.BucketId = bucket.Id;
+                        log.Applied = true;
+                        log.StatusMessage = $"{result.FieldKey} applied to active bucket.";
+                        break;
+                    }
+                case VoiceCommandType.Note:
+                    {
+                        var bucket = await _bucketService.GetOrCreateActiveBucketAsync(sessionId, spokenAt);
+                        await _bucketService.AppendNoteAsync(bucket.Id, result.NoteText!);
+                        log.BucketId = bucket.Id;
+                        log.Applied = true;
+                        log.StatusMessage = "Note applied to active bucket.";
+                        break;
+                    }
+                case VoiceCommandType.NextBucket:
+                    {
+                        var bucket = await _bucketService.StartNewBucketAsync(sessionId, spokenAt);
+                        log.BucketId = bucket.Id;
+                        log.Applied = true;
+                        log.StatusMessage = "New bucket started.";
+                        break;
+                    }
+                case VoiceCommandType.Undo:
+                    {
+                        log.StatusMessage = "Undo command is not implemented yet.";
+                        break;
+                    }
+                default:
+                    {
+                        log.StatusMessage = $"{result.CommandType} command is not supported.";
+                        break;
+                    }
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Applied = false;
+            log.StatusMessage = $"Apply failed: {ex.Message}";
+            await _repository.SaveVoiceLogAsync(log);
+            throw;
         }
 
         await _repository.SaveVoiceLogAsync(log);

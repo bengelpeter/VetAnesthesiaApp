@@ -19,6 +19,10 @@
     <array>
         <string>arm64</string>
     </array>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Vet anesthesia staff use the microphone for hands-free vital entry during a procedure.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Vet anesthesia staff use speech recognition to capture spoken vitals and notes during monitoring.</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
