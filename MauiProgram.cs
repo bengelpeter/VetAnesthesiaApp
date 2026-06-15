@@ -23,7 +23,7 @@ namespace VetAnesthesiaApp
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansSemibold");
+                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 })
                 .UseMauiCommunityToolkit();
 
@@ -44,6 +44,8 @@ namespace VetAnesthesiaApp
 #else
             builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 #endif
+            builder.Services.AddScoped<IFileShareService, FileShareService>();
+            builder.Services.AddScoped<IPdfSessionExportCoordinator, PdfSessionExportCoordinator>();
             builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 

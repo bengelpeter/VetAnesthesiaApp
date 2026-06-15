@@ -1,7 +1,6 @@
 @page "/session/{SessionId:guid}"
 @implements IAsyncDisposable
 
-@using Microsoft.Maui.ApplicationModel.DataTransfer
 @using MudBlazor
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
@@ -20,7 +19,7 @@
 @inject ISessionAlertEvaluator AlertEvaluator
 @inject ISnackbar Snackbar
 @inject IVoiceParserService Parser
-@inject IPdfExportService PdfExportService
+@inject IPdfSessionExportCoordinator PdfSessionExportCoordinator
 
 <PageTitle>Session Chart</PageTitle>
 
@@ -581,14 +580,17 @@
     {
         try
         {
-            var filePath = await PdfExportService.ExportSessionPdfAsync(SessionId);
-            await Share.Default.RequestAsync(new ShareFileRequest
-            {
-                Title = "Share anesthesia record",
-                File = new ShareFile(filePath)
-            });
+            var result = await PdfSessionExportCoordinator.ExportAndShareAsync(SessionId);
 
-            Snackbar.Add("PDF generated and ready to share.", Severity.Success);
+            if (result.ShareRequested)
+            {
+                Snackbar.Add("PDF generated and ready to share.", Severity.Success);
+                return;
+            }
+
+            Snackbar.Add(
+                $"PDF generated, but the share sheet could not open. File saved to {result.FilePath}",
+                Severity.Warning);
         }
         catch (Exception ex)
         {

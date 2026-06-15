@@ -31,6 +31,11 @@
     <Compile Include="..\Services\Data\IBucketService.cs" Link="App\Services\Data\IBucketService.cs" />
     <Compile Include="..\Services\Alerts\ISessionAlertEvaluator.cs" Link="App\Services\Alerts\ISessionAlertEvaluator.cs" />
     <Compile Include="..\Services\Alerts\SessionAlertEvaluator.cs" Link="App\Services\Alerts\SessionAlertEvaluator.cs" />
+    <Compile Include="..\Services\PDF\IFileShareService.cs" Link="App\Services\Pdf\IFileShareService.cs" />
+    <Compile Include="..\Services\PDF\IPdfExportService.cs" Link="App\Services\Pdf\IPdfExportService.cs" />
+    <Compile Include="..\Services\PDF\IPdfSessionExportCoordinator.cs" Link="App\Services\Pdf\IPdfSessionExportCoordinator.cs" />
+    <Compile Include="..\Services\PDF\PdfSessionExportCoordinator.cs" Link="App\Services\Pdf\PdfSessionExportCoordinator.cs" />
+    <Compile Include="..\Services\PDF\PdfSessionExportResult.cs" Link="App\Services\Pdf\PdfSessionExportResult.cs" />
     <Compile Include="..\Services\Buckets\AnesthesiaFieldValidator.cs" Link="App\Services\Buckets\AnesthesiaFieldValidator.cs" />
     <Compile Include="..\Services\Buckets\BucketService.cs" Link="App\Services\Buckets\BucketService.cs" />
     <Compile Include="..\Services\Voice\ITextToNumberParser.cs" Link="App\Services\Voice\ITextToNumberParser.cs" />
