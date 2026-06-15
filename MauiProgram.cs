@@ -10,6 +10,7 @@ using VetAnesthesiaApp.Services.Pdf;
 using QuestPDF.Infrastructure;
 using VetAnesthesiaApp.Services.Speech;
 using VetAnesthesiaApp.Services.Voice;
+using VetAnesthesiaApp.Services.Workflow;
 namespace VetAnesthesiaApp
 {
     public static class MauiProgram
@@ -47,6 +48,9 @@ namespace VetAnesthesiaApp
             builder.Services.AddScoped<IFileShareService, FileShareService>();
             builder.Services.AddScoped<IPdfSessionExportCoordinator, PdfSessionExportCoordinator>();
             builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
+            builder.Services.AddScoped<ISessionCompletionEvaluator, SessionCompletionEvaluator>();
+            builder.Services.AddScoped<ISessionHandoffSummaryService, SessionHandoffSummaryService>();
+            builder.Services.AddScoped<IClipboardService, ClipboardService>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 
             builder.Services.AddScoped<IVoiceParserService, VoiceParserService>();

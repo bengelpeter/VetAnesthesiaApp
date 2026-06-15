@@ -19,7 +19,13 @@ public class VoiceEntryLog
     public string? MatchedFieldKey { get; set; }
     public string? ParsedValueText { get; set; }
     public decimal? ParsedNumericValue { get; set; }
+    public decimal? PreviousNumericValue { get; set; }
+    public string? PreviousTextValue { get; set; }
+    public Guid? PreviousBucketId { get; set; }
+    public DateTime? PreviousBucketEndTime { get; set; }
 
     public bool Applied { get; set; }
+    public bool Undone { get; set; }
+    public DateTime? UndoneAt { get; set; }
     public string? StatusMessage { get; set; }
 }

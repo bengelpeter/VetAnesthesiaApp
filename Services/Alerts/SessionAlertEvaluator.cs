@@ -13,11 +13,25 @@ public class SessionAlertEvaluator : ISessionAlertEvaluator
 
         var latestBucket = buckets[^1];
 
+        if (!latestBucket.Spo2.HasValue)
+        {
+            alerts.Add(new SessionAlert(
+                VetAlertLevel.Warning,
+                "Latest bucket is missing SpO2."));
+        }
+
         if (latestBucket.Spo2.HasValue && latestBucket.Spo2.Value < settings.Spo2LowThreshold)
         {
             alerts.Add(new SessionAlert(
                 VetAlertLevel.Critical,
                 $"SpO2 is {latestBucket.Spo2.Value} and below the clinic threshold of {settings.Spo2LowThreshold}."));
+        }
+
+        if (!latestBucket.Map.HasValue && !(latestBucket.SystolicBp.HasValue && latestBucket.DiastolicBp.HasValue))
+        {
+            alerts.Add(new SessionAlert(
+                VetAlertLevel.Warning,
+                "Latest bucket is missing blood pressure or MAP."));
         }
 
         var recentMapBuckets = buckets

@@ -19,6 +19,7 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await _db.CreateTableAsync<AnesthesiaBucket>();
         await _db.CreateTableAsync<ClinicSettings>();
         await _db.CreateTableAsync<VoiceEntryLog>();
+        await EnsureVoiceLogColumnsAsync();
     }
 
     private SQLiteAsyncConnection Db =>
@@ -115,6 +116,9 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
             await Db.UpdateAsync(bucket);
     }
 
+    public Task DeleteBucketAsync(Guid bucketId) =>
+        Db.DeleteAsync<AnesthesiaBucket>(bucketId);
+
     public async Task<List<VoiceEntryLog>> GetVoiceLogsAsync(Guid sessionId)
         => await Db.Table<VoiceEntryLog>()
             .Where(x => x.SessionId == sessionId)
@@ -138,4 +142,23 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         .Where(x => x.AnimalId == animalId)
         .OrderByDescending(x => x.SessionStartTime)
         .ToListAsync();
+
+    private async Task EnsureVoiceLogColumnsAsync()
+    {
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.PreviousNumericValue), "REAL");
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.PreviousTextValue), "TEXT");
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.PreviousBucketId), "TEXT");
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.PreviousBucketEndTime), "TEXT");
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.Undone), "INTEGER NOT NULL DEFAULT 0");
+        await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.UndoneAt), "TEXT");
+    }
+
+    private async Task EnsureColumnAsync(string tableName, string columnName, string columnDefinition)
+    {
+        var existingColumns = await Db.GetTableInfoAsync(tableName);
+        if (existingColumns.Any(x => string.Equals(x.Name, columnName, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        await Db.ExecuteAsync($"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition}");
+    }
 }

@@ -10,6 +10,7 @@
 @using VetAnesthesiaApp.Services.Pdf
 @using VetAnesthesiaApp.Services.Speech
 @using VetAnesthesiaApp.Services.Voice
+@using VetAnesthesiaApp.Services.Workflow
 
 @inject IAnesthesiaRepository Repository
 @inject IBucketService BucketService
@@ -20,6 +21,9 @@
 @inject ISnackbar Snackbar
 @inject IVoiceParserService Parser
 @inject IPdfSessionExportCoordinator PdfSessionExportCoordinator
+@inject ISessionCompletionEvaluator SessionCompletionEvaluator
+@inject ISessionHandoffSummaryService SessionHandoffSummaryService
+@inject IClipboardService ClipboardService
 
 <PageTitle>Session Chart</PageTitle>
 
@@ -67,15 +71,44 @@
                            OnClick="ToggleListening">
                     @(_isListening ? "Stop Listening" : "Start Listening")
                 </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Warning"
+                           Disabled="@(!CanUndoLastVoiceEntry)"
+                           OnClick="UndoLastVoiceEntry">
+                    Undo Last Voice Entry
+                </MudButton>
             </MudStack>
 
-            <MudButton OnClick="ExportPdf"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary">
-                Export PDF
-            </MudButton>
+            <MudStack Row="true" Spacing="2" Class="mt-3" Style="flex-wrap:wrap;">
+                <MudButton OnClick="ExportPdf"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary">
+                    Export PDF
+                </MudButton>
+
+                <MudButton OnClick="CopyHandoffSummary"
+                           Variant="Variant.Outlined"
+                           Color="Color.Secondary">
+                    Copy Handoff Summary
+                </MudButton>
+
+                <MudButton OnClick="ToggleSessionComplete"
+                           Variant="Variant.Outlined"
+                           Color="@(_session.SessionEndTime is null ? Color.Info : Color.Default)">
+                    @(_session.SessionEndTime is null ? "Mark Procedure Complete" : "Reopen Procedure")
+                </MudButton>
+            </MudStack>
 
             <MudDivider Class="my-3" />
+
+            <MudAlert Severity="@MapSpeechSeverity(_voiceStatusLevel)" Dense="true" Variant="Variant.Filled">
+                @_voiceStatus
+            </MudAlert>
+
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                If a voice entry is wrong, use <b>Undo Last Voice Entry</b> or tap the chart cell to correct it immediately.
+            </MudAlert>
 
             <MudGrid>
                 <MudItem xs="12" sm="6" md="3">
@@ -105,13 +138,17 @@
                 </MudItem>
 
                 <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Last Heard</MudText>
-                    <MudText Typo="Typo.body2">@_lastSpeech</MudText>
+                    <MudText Typo="Typo.caption">Voice Outcome</MudText>
+                    <MudChip T="string"
+                             Color="@MapSpeechChipColor(_voiceStatusLevel)"
+                             Variant="Variant.Filled">
+                        @DescribeVoiceState(_voiceStatusLevel)
+                    </MudChip>
                 </MudItem>
 
-                <MudItem xs="12">
-                    <MudText Typo="Typo.caption">Voice Status</MudText>
-                    <MudText Typo="Typo.body2">@_voiceStatus</MudText>
+                <MudItem xs="12" sm="6" md="6">
+                    <MudText Typo="Typo.caption">Last Heard</MudText>
+                    <MudText Typo="Typo.body2">@_lastSpeech</MudText>
                 </MudItem>
             </MudGrid>
         </MudPaper>
@@ -193,6 +230,29 @@
         </MudPaper>
 
         <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h6">Completion Checks</MudText>
+                <MudSpacer />
+                <MudChip T="string"
+                         Color="@(_completionSummary.IsReadyForHandoff ? Color.Success : Color.Warning)"
+                         Variant="Variant.Filled">
+                    @(_completionSummary.IsReadyForHandoff ? "Ready for handoff" : "Needs attention")
+                </MudChip>
+            </MudStack>
+
+            <MudGrid Class="mt-2">
+                @foreach (var item in _completionSummary.Items)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudAlert Severity="@MapCompletionSeverity(item)" Dense="true" Class="mb-2">
+                            <b>@item.Label:</b> @item.Message
+                        </MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
             <MudText Typo="Typo.h6" Class="mb-2">Voice Debug</MudText>
 
             <MudGrid>
@@ -250,6 +310,29 @@
         </MudPaper>
 
         <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h6">Handoff Summary</MudText>
+                <MudSpacer />
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           OnClick="CopyHandoffSummary">
+                    Copy Summary
+                </MudButton>
+            </MudStack>
+
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Paste this summary into the clinic chart or current software after the case is complete.
+            </MudText>
+
+            <MudTextField T="string"
+                          Value="@_handoffSummary"
+                          ReadOnly="true"
+                          Lines="14"
+                          Variant="Variant.Outlined"
+                          FullWidth="true" />
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
             <MudText Typo="Typo.h6" Class="mb-2">Recent Voice Activity</MudText>
 
             @if (_recentVoiceLogs.Count == 0)
@@ -265,11 +348,19 @@
                         <MudTh>Time</MudTh>
                         <MudTh>Transcript</MudTh>
                         <MudTh>Status</MudTh>
+                        <MudTh>Outcome</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Time">@context.SpokenAt.ToString("hh:mm:ss tt")</MudTd>
                         <MudTd DataLabel="Transcript">@context.RawTranscript</MudTd>
                         <MudTd DataLabel="Status">@context.StatusMessage</MudTd>
+                        <MudTd DataLabel="Outcome">
+                            <MudChip T="string"
+                                     Color="@MapVoiceLogColor(context)"
+                                     Variant="Variant.Filled">
+                                @DescribeVoiceLogOutcome(context)
+                            </MudChip>
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
             }
@@ -553,17 +644,20 @@
     private List<VoiceEntryLog> _recentVoiceLogs = new();
     private List<AnesthesiaBucket> _noteEntries = new();
     private List<SessionAlert> _alerts = new();
+    private SessionCompletionSummary _completionSummary = new(Array.Empty<SessionCompletionItem>());
     private ClinicSettings _clinicSettings = new();
     private bool _isLoading = true;
     private bool _isListening;
     private bool _isDisposed;
     private string _lastSpeech = "-";
     private string _voiceStatus = "-";
+    private string _handoffSummary = "";
     private string _debugNormalized = "-";
     private string _debugField = "-";
     private string _debugValueText = "-";
     private string _debugNumeric = "-";
     private string _debugStatus = "-";
+    private SpeechStatusLevel _voiceStatusLevel = SpeechStatusLevel.Info;
 
     protected override async Task OnInitializedAsync()
     {
@@ -609,6 +703,8 @@
             _activeBucket = null;
             _recentVoiceLogs = new();
             _noteEntries = new();
+            _completionSummary = new SessionCompletionSummary(Array.Empty<SessionCompletionItem>());
+            _handoffSummary = string.Empty;
             _isLoading = false;
             await InvokeAsync(StateHasChanged);
             return;
@@ -626,6 +722,8 @@
             .OrderByDescending(x => x.BucketStartTime)
             .ToList();
         _alerts = AlertEvaluator.Evaluate(_buckets, _clinicSettings, DateTime.Now);
+        _completionSummary = SessionCompletionEvaluator.Evaluate(_session, _buckets, _clinicSettings, _recentVoiceLogs, DateTime.Now);
+        _handoffSummary = SessionHandoffSummaryService.Build(_animal, _session, _buckets, _alerts, _completionSummary);
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
@@ -662,7 +760,6 @@
             else
             {
                 await SpeechService.StartAsync();
-                _debugStatus = "Listening for voice commands.";
             }
         }
         catch (Exception ex)
@@ -680,7 +777,7 @@
             return;
 
         _lastSpeech = text;
-        _voiceStatus = "Processing captured speech...";
+        SetVoiceStatus(SpeechStatusLevel.Info, "Processing captured speech...");
 
         var spokenAt = DateTime.Now;
         var commands = VoiceTranscriptSegmenter.Split(text);
@@ -719,10 +816,23 @@
         }
 
         if (appliedCount > 0)
+        {
             Snackbar.Add($"Applied {appliedCount} voice command(s).", Severity.Success);
+        }
 
         if (failedMessages.Count > 0)
+        {
             _debugStatus = string.Join(" | ", failedMessages);
+            SetVoiceStatus(
+                SpeechStatusLevel.Warning,
+                appliedCount > 0
+                    ? $"Applied {appliedCount} voice command(s), but {failedMessages.Count} need review."
+                    : $"No voice commands were applied. Review {failedMessages.Count} failed attempt(s).");
+        }
+        else if (appliedCount > 0)
+        {
+            SetVoiceStatus(SpeechStatusLevel.Info, $"Applied {appliedCount} voice command(s).");
+        }
 
         await LoadAsync();
         await InvokeAsync(StateHasChanged);
@@ -742,8 +852,7 @@
         if (_isDisposed)
             return;
 
-        _voiceStatus = update.Message;
-        _debugStatus = update.Message;
+        SetVoiceStatus(update.Level, update.Message);
 
         if (update.Level == SpeechStatusLevel.Warning)
             Snackbar.Add(update.Message, Severity.Warning);
@@ -854,6 +963,41 @@
         await SaveClinicSettingsAsync();
     }
 
+    private async Task UndoLastVoiceEntry()
+    {
+        try
+        {
+            var log = await VoiceCommandApplicationService.UndoLastAppliedCommandAsync(SessionId, DateTime.Now, "manual undo");
+            SetVoiceStatus(log.Applied ? SpeechStatusLevel.Info : SpeechStatusLevel.Warning, log.StatusMessage ?? "Undo processed.");
+            Snackbar.Add(log.StatusMessage ?? "Undo processed.", log.Applied ? Severity.Success : Severity.Warning);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            SetVoiceStatus(SpeechStatusLevel.Error, $"Undo failed: {ex.Message}");
+            Snackbar.Add($"Undo failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CopyHandoffSummary()
+    {
+        await ClipboardService.SetTextAsync(_handoffSummary);
+        Snackbar.Add("Handoff summary copied.", Severity.Success);
+    }
+
+    private async Task ToggleSessionComplete()
+    {
+        if (_session is null)
+            return;
+
+        _session.SessionEndTime = _session.SessionEndTime is null ? DateTime.Now : null;
+        await Repository.SaveSessionAsync(_session);
+        Snackbar.Add(
+            _session.SessionEndTime is null ? "Procedure reopened." : "Procedure marked complete.",
+            Severity.Success);
+        await LoadAsync();
+    }
+
     private async Task SaveFieldValueAsync(Guid bucketId, string fieldKey, decimal? value)
     {
         try
@@ -871,6 +1015,40 @@
             await LoadAsync();
         }
     }
+
+    private bool CanUndoLastVoiceEntry =>
+        _recentVoiceLogs.Any(x => x.Applied && !x.Undone && !string.Equals(x.MatchedCommandType, nameof(VoiceCommandType.Undo), StringComparison.OrdinalIgnoreCase));
+
+    private void SetVoiceStatus(SpeechStatusLevel level, string message)
+    {
+        _voiceStatusLevel = level;
+        _voiceStatus = message;
+        _debugStatus = message;
+    }
+
+    private static Severity MapSpeechSeverity(SpeechStatusLevel level) =>
+        level switch
+        {
+            SpeechStatusLevel.Error => Severity.Error,
+            SpeechStatusLevel.Warning => Severity.Warning,
+            _ => Severity.Info
+        };
+
+    private static Color MapSpeechChipColor(SpeechStatusLevel level) =>
+        level switch
+        {
+            SpeechStatusLevel.Error => Color.Error,
+            SpeechStatusLevel.Warning => Color.Warning,
+            _ => Color.Success
+        };
+
+    private static string DescribeVoiceState(SpeechStatusLevel level) =>
+        level switch
+        {
+            SpeechStatusLevel.Error => "Needs attention",
+            SpeechStatusLevel.Warning => "Review needed",
+            _ => "Ready"
+        };
 
     public async ValueTask DisposeAsync()
     {
@@ -898,5 +1076,32 @@
 
         _session.Procedure = value;
         await Repository.SaveSessionAsync(_session);
+        await LoadAsync();
+    }
+
+    private static Severity MapCompletionSeverity(SessionCompletionItem item) =>
+        item.IsComplete
+            ? Severity.Success
+            : item.Level switch
+            {
+                VetAlertLevel.Critical => Severity.Error,
+                VetAlertLevel.Warning => Severity.Warning,
+                _ => Severity.Info
+            };
+
+    private static Color MapVoiceLogColor(VoiceEntryLog log)
+    {
+        if (log.Undone)
+            return Color.Info;
+
+        return log.Applied ? Color.Success : Color.Warning;
+    }
+
+    private static string DescribeVoiceLogOutcome(VoiceEntryLog log)
+    {
+        if (log.Undone)
+            return "Undone";
+
+        return log.Applied ? "Applied" : "Needs review";
     }
 }

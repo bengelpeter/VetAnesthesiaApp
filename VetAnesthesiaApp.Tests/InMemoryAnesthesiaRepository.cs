@@ -67,6 +67,12 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
         return Task.CompletedTask;
     }
 
+    public Task DeleteBucketAsync(Guid bucketId)
+    {
+        _buckets.Remove(bucketId);
+        return Task.CompletedTask;
+    }
+
     public Task<List<VoiceEntryLog>> GetVoiceLogsAsync(Guid sessionId) =>
         Task.FromResult(_voiceLogs.Values
             .Where(x => x.SessionId == sessionId)

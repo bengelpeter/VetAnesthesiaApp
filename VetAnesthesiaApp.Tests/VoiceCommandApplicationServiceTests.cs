@@ -73,18 +73,63 @@ public class VoiceCommandApplicationServiceTests
     }
 
     [Fact]
-    public async Task ProcessTranscriptAsync_LogsUnsupportedUndoWithoutMutatingData()
+    public async Task ProcessTranscriptAsync_UndoClearsLastAppliedFieldValue()
     {
         var repo = new InMemoryAnesthesiaRepository();
         var service = CreateService(repo);
         var session = await CreateSessionAsync(repo);
+        var spokenAt = new DateTime(2026, 6, 8, 9, 0, 0);
 
-        var log = await service.ProcessTranscriptAsync(session.Id, "undo", DateTime.Now);
+        await service.ProcessTranscriptAsync(session.Id, "heart rate 98", spokenAt);
+        var log = await service.ProcessTranscriptAsync(session.Id, "undo", spokenAt.AddSeconds(10));
+        var bucket = (await repo.GetBucketsAsync(session.Id)).Single();
+        var logs = await repo.GetVoiceLogsAsync(session.Id);
+
+        Assert.True(log.Applied);
+        Assert.Equal("Undid last HeartRate entry.", log.StatusMessage);
+        Assert.Null(bucket.HeartRate);
+        Assert.Contains(logs, x => x.Undone && x.MatchedFieldKey == AnesthesiaFieldKeys.HeartRate);
+    }
+
+    [Fact]
+    public async Task ProcessTranscriptAsync_UndoRestoresPreviousNoteText()
+    {
+        var repo = new InMemoryAnesthesiaRepository();
+        var service = CreateService(repo);
+        var session = await CreateSessionAsync(repo);
+        var spokenAt = new DateTime(2026, 6, 8, 9, 0, 0);
+
+        await service.ProcessTranscriptAsync(session.Id, "note stable plane", spokenAt);
+        await service.ProcessTranscriptAsync(session.Id, "note warming started", spokenAt.AddMinutes(1));
+        var log = await service.ProcessTranscriptAsync(session.Id, "undo", spokenAt.AddMinutes(2));
+        var bucket = (await repo.GetBucketsAsync(session.Id)).Single();
+
+        Assert.True(log.Applied);
+        Assert.Equal("Undid last note entry.", log.StatusMessage);
+        Assert.Equal("stable plane", bucket.Notes);
+    }
+
+    [Fact]
+    public async Task ProcessTranscriptAsync_UndoRemovesNewestEmptyBucket()
+    {
+        var repo = new InMemoryAnesthesiaRepository();
+        var service = CreateService(repo);
+        var session = await CreateSessionAsync(repo);
+        var firstTime = new DateTime(2026, 6, 8, 9, 0, 0);
+        var secondTime = firstTime.AddMinutes(5);
+
+        await service.ProcessTranscriptAsync(session.Id, "heart rate 90", firstTime);
+        await service.ProcessTranscriptAsync(session.Id, "next bucket", secondTime);
+
+        var log = await service.ProcessTranscriptAsync(session.Id, "undo", secondTime.AddSeconds(10));
         var buckets = await repo.GetBucketsAsync(session.Id);
+        var savedSession = await repo.GetSessionAsync(session.Id);
 
-        Assert.False(log.Applied);
-        Assert.Equal("Undo command is not implemented yet.", log.StatusMessage);
-        Assert.Empty(buckets);
+        Assert.True(log.Applied);
+        Assert.Equal("Undid last bucket change.", log.StatusMessage);
+        Assert.Single(buckets);
+        Assert.Null(buckets[0].BucketEndTime);
+        Assert.Equal(buckets[0].Id, savedSession!.ActiveBucketId);
     }
 
     [Fact]

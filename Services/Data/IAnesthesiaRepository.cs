@@ -21,6 +21,7 @@ namespace VetAnesthesiaApp.Services.Data
         Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId);
         Task<AnesthesiaBucket?> GetBucketAsync(Guid bucketId);
         Task SaveBucketAsync(AnesthesiaBucket bucket);
+        Task DeleteBucketAsync(Guid bucketId);
 
         Task<List<VoiceEntryLog>> GetVoiceLogsAsync(Guid sessionId);
         Task SaveVoiceLogAsync(VoiceEntryLog log);
