@@ -1,6 +1,7 @@
 @page "/session/{SessionId:guid}"
 @implements IAsyncDisposable
 
+@using Microsoft.Maui.ApplicationModel.DataTransfer
 @using MudBlazor
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
@@ -581,7 +582,13 @@
         try
         {
             var filePath = await PdfExportService.ExportSessionPdfAsync(SessionId);
-            Snackbar.Add($"PDF saved: {filePath}", Severity.Success);
+            await Share.Default.RequestAsync(new ShareFileRequest
+            {
+                Title = "Share anesthesia record",
+                File = new ShareFile(filePath)
+            });
+
+            Snackbar.Add("PDF generated and ready to share.", Severity.Success);
         }
         catch (Exception ex)
         {

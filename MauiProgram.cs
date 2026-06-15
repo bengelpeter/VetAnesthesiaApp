@@ -23,7 +23,7 @@ namespace VetAnesthesiaApp
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                    fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                    fonts.AddFont("OpenSans-Regular.ttf", "OpenSansSemibold");
                 })
                 .UseMauiCommunityToolkit();
 
@@ -39,8 +39,11 @@ namespace VetAnesthesiaApp
 #endif
             QuestPDF.Settings.License = LicenseType.Community;
 
-
+#if ANDROID
+            builder.Services.AddScoped<IPdfExportService, AndroidPdfExportService>();
+#else
             builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+#endif
             builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 
