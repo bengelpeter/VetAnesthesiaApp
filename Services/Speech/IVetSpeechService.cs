@@ -6,6 +6,7 @@ public interface IVetSpeechService
 
     event Action<string>? SpeechRecognized;
     event Action<bool>? ListeningChanged;
+    event Action<SpeechStatusUpdate>? StatusChanged;
 
     Task StartAsync();
     Task StopAsync();

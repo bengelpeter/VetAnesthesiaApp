@@ -17,6 +17,7 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await _db.CreateTableAsync<Animal>();
         await _db.CreateTableAsync<AnesthesiaSession>();
         await _db.CreateTableAsync<AnesthesiaBucket>();
+        await _db.CreateTableAsync<ClinicSettings>();
         await _db.CreateTableAsync<VoiceEntryLog>();
     }
 
@@ -64,6 +65,33 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
             await Db.InsertAsync(session);
         else
             await Db.UpdateAsync(session);
+    }
+
+    public async Task<ClinicSettings> GetClinicSettingsAsync()
+    {
+        var settings = await Db.Table<ClinicSettings>()
+            .Where(x => x.Id == 1)
+            .FirstOrDefaultAsync();
+
+        if (settings is not null)
+            return settings;
+
+        settings = new ClinicSettings();
+        await Db.InsertAsync(settings);
+        return settings;
+    }
+
+    public async Task SaveClinicSettingsAsync(ClinicSettings settings)
+    {
+        settings.Id = 1;
+        var existing = await Db.Table<ClinicSettings>()
+            .Where(x => x.Id == 1)
+            .FirstOrDefaultAsync();
+
+        if (existing is null)
+            await Db.InsertAsync(settings);
+        else
+            await Db.UpdateAsync(settings);
     }
 
     public async Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId)

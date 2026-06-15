@@ -12,6 +12,7 @@ public class VetSpeechService : IVetSpeechService
 
     public event Action<string>? SpeechRecognized;
     public event Action<bool>? ListeningChanged;
+    public event Action<SpeechStatusUpdate>? StatusChanged;
 
     public VetSpeechService(ISpeechToText speech)
     {
@@ -36,6 +37,7 @@ public class VetSpeechService : IVetSpeechService
 
             IsListening = true;
             ListeningChanged?.Invoke(true);
+            StatusChanged?.Invoke(new SpeechStatusUpdate(SpeechStatusLevel.Info, "Listening for voice commands."));
 
             var options = new SpeechToTextOptions
             {
@@ -45,10 +47,14 @@ public class VetSpeechService : IVetSpeechService
 
             await _speech.StartListenAsync(options, _cts.Token);
         }
-        catch
+        catch (Exception ex)
         {
             IsListening = false;
             ListeningChanged?.Invoke(false);
+            var message = ex is PermissionException
+                ? "Microphone permission not granted."
+                : $"Speech start failed: {ex.Message}";
+            StatusChanged?.Invoke(new SpeechStatusUpdate(SpeechStatusLevel.Error, message));
             throw;
         }
     }
@@ -70,6 +76,7 @@ public class VetSpeechService : IVetSpeechService
 
         IsListening = false;
         ListeningChanged?.Invoke(false);
+        StatusChanged?.Invoke(new SpeechStatusUpdate(SpeechStatusLevel.Info, "Stopped listening."));
     }
 
     private void OnRecognitionCompleted(object? sender, SpeechToTextRecognitionResultCompletedEventArgs args)
@@ -79,6 +86,11 @@ public class VetSpeechService : IVetSpeechService
         if (!string.IsNullOrWhiteSpace(text))
         {
             SpeechRecognized?.Invoke(text);
+            StatusChanged?.Invoke(new SpeechStatusUpdate(SpeechStatusLevel.Info, "Speech captured."));
+        }
+        else
+        {
+            StatusChanged?.Invoke(new SpeechStatusUpdate(SpeechStatusLevel.Warning, "No speech detected. Try again closer to the tablet."));
         }
 
         IsListening = false;

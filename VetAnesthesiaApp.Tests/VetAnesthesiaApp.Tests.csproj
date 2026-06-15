@@ -24,9 +24,13 @@
     <Compile Include="..\Models\Animal.cs" Link="App\Models\Animal.cs" />
     <Compile Include="..\Models\AnesthesiaBucket.cs" Link="App\Models\AnesthesiaBucket.cs" />
     <Compile Include="..\Models\AnesthesiaSession.cs" Link="App\Models\AnesthesiaSession.cs" />
+    <Compile Include="..\Models\ClinicSettings.cs" Link="App\Models\ClinicSettings.cs" />
+    <Compile Include="..\Models\SessionAlert.cs" Link="App\Models\SessionAlert.cs" />
     <Compile Include="..\Models\VoiceEntryLog.cs" Link="App\Models\VoiceEntryLog.cs" />
     <Compile Include="..\Services\Data\IAnesthesiaRepository.cs" Link="App\Services\Data\IAnesthesiaRepository.cs" />
     <Compile Include="..\Services\Data\IBucketService.cs" Link="App\Services\Data\IBucketService.cs" />
+    <Compile Include="..\Services\Alerts\ISessionAlertEvaluator.cs" Link="App\Services\Alerts\ISessionAlertEvaluator.cs" />
+    <Compile Include="..\Services\Alerts\SessionAlertEvaluator.cs" Link="App\Services\Alerts\SessionAlertEvaluator.cs" />
     <Compile Include="..\Services\Buckets\AnesthesiaFieldValidator.cs" Link="App\Services\Buckets\AnesthesiaFieldValidator.cs" />
     <Compile Include="..\Services\Buckets\BucketService.cs" Link="App\Services\Buckets\BucketService.cs" />
     <Compile Include="..\Services\Voice\ITextToNumberParser.cs" Link="App\Services\Voice\ITextToNumberParser.cs" />

@@ -4,6 +4,7 @@
 @using MudBlazor
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Alerts
 @using VetAnesthesiaApp.Services.Data
 @using VetAnesthesiaApp.Services.Buckets
 @using VetAnesthesiaApp.Services.Pdf
@@ -15,6 +16,7 @@
 @inject NavigationManager Nav
 @inject IVetSpeechService SpeechService
 @inject IVoiceCommandApplicationService VoiceCommandApplicationService
+@inject ISessionAlertEvaluator AlertEvaluator
 @inject ISnackbar Snackbar
 @inject IVoiceParserService Parser
 @inject IPdfExportService PdfExportService
@@ -106,7 +108,88 @@
                     <MudText Typo="Typo.caption">Last Heard</MudText>
                     <MudText Typo="Typo.body2">@_lastSpeech</MudText>
                 </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Voice Status</MudText>
+                    <MudText Typo="Typo.body2">@_voiceStatus</MudText>
+                </MudItem>
             </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">VetPulse V2 Settings</MudText>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="int"
+                                     Label="Monitoring Interval (min)"
+                                     Value="@_clinicSettings.MonitoringIntervalMinutes"
+                                     ValueChanged="UpdateMonitoringInterval"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="int"
+                                     Label="Missing Vitals Alert (min)"
+                                     Value="@_clinicSettings.MissingVitalsAlertAfterMinutes"
+                                     ValueChanged="UpdateMissingVitalsThreshold"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="int"
+                                     Label="Low SpO2 Threshold"
+                                     Value="@_clinicSettings.Spo2LowThreshold"
+                                     ValueChanged="UpdateSpo2Threshold"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="int"
+                                     Label="Low MAP Threshold"
+                                     Value="@_clinicSettings.MapLowThreshold"
+                                     ValueChanged="UpdateMapThreshold"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     HideSpinButtons="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudNumericField T="decimal"
+                                     Label="Temp Drop Alert (F)"
+                                     Value="@_clinicSettings.TemperatureDropAlertDelta"
+                                     ValueChanged="UpdateTemperatureDropThreshold"
+                                     Variant="Variant.Outlined"
+                                     Margin="Margin.Dense"
+                                     HideSpinButtons="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Safety Alerts</MudText>
+
+            @if (_alerts.Count == 0)
+            {
+                <MudAlert Severity="Severity.Success" Dense="true">
+                    No active safety alerts right now.
+                </MudAlert>
+            }
+            else
+            {
+                @foreach (var alert in _alerts)
+                {
+                    <MudAlert Severity="@MapAlertSeverity(alert.Level)" Dense="true" Class="mb-2">
+                        @alert.Message
+                    </MudAlert>
+                }
+            }
         </MudPaper>
 
         <MudPaper Class="pa-4 mb-4">
@@ -469,10 +552,13 @@
     private AnesthesiaBucket? _activeBucket;
     private List<VoiceEntryLog> _recentVoiceLogs = new();
     private List<AnesthesiaBucket> _noteEntries = new();
+    private List<SessionAlert> _alerts = new();
+    private ClinicSettings _clinicSettings = new();
     private bool _isLoading = true;
     private bool _isListening;
     private bool _isDisposed;
     private string _lastSpeech = "-";
+    private string _voiceStatus = "-";
     private string _debugNormalized = "-";
     private string _debugField = "-";
     private string _debugValueText = "-";
@@ -485,6 +571,7 @@
 
         SpeechService.SpeechRecognized += OnSpeechRecognized;
         SpeechService.ListeningChanged += OnListeningChanged;
+        SpeechService.StatusChanged += OnSpeechStatusChanged;
 
         await LoadAsync();
     }
@@ -519,6 +606,7 @@
         }
 
         _animal = await Repository.GetAnimalAsync(_session.AnimalId);
+        _clinicSettings = await Repository.GetClinicSettingsAsync();
         _buckets = await Repository.GetBucketsAsync(SessionId);
         _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
         _recentVoiceLogs = (await Repository.GetVoiceLogsAsync(SessionId))
@@ -528,6 +616,7 @@
             .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
             .OrderByDescending(x => x.BucketStartTime)
             .ToList();
+        _alerts = AlertEvaluator.Evaluate(_buckets, _clinicSettings, DateTime.Now);
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
@@ -582,6 +671,7 @@
             return;
 
         _lastSpeech = text;
+        _voiceStatus = "Processing captured speech...";
 
         var spokenAt = DateTime.Now;
         var commands = VoiceTranscriptSegmenter.Split(text);
@@ -635,6 +725,22 @@
             return;
 
         _isListening = isListening;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSpeechStatusChanged(SpeechStatusUpdate update)
+    {
+        if (_isDisposed)
+            return;
+
+        _voiceStatus = update.Message;
+        _debugStatus = update.Message;
+
+        if (update.Level == SpeechStatusLevel.Warning)
+            Snackbar.Add(update.Message, Severity.Warning);
+        else if (update.Level == SpeechStatusLevel.Error)
+            Snackbar.Add(update.Message, Severity.Error);
+
         _ = InvokeAsync(StateHasChanged);
     }
 
@@ -694,6 +800,51 @@
         await LoadAsync();
     }
 
+    private static Severity MapAlertSeverity(VetAlertLevel level) =>
+        level switch
+        {
+            VetAlertLevel.Critical => Severity.Error,
+            VetAlertLevel.Warning => Severity.Warning,
+            _ => Severity.Info
+        };
+
+    private async Task SaveClinicSettingsAsync()
+    {
+        await Repository.SaveClinicSettingsAsync(_clinicSettings);
+        await LoadAsync();
+        Snackbar.Add("VetPulse settings saved.", Severity.Success);
+    }
+
+    private async Task UpdateMonitoringInterval(int value)
+    {
+        _clinicSettings.MonitoringIntervalMinutes = Math.Max(1, value);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateMissingVitalsThreshold(int value)
+    {
+        _clinicSettings.MissingVitalsAlertAfterMinutes = Math.Max(1, value);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateSpo2Threshold(int value)
+    {
+        _clinicSettings.Spo2LowThreshold = Math.Clamp(value, 1, 100);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateMapThreshold(int value)
+    {
+        _clinicSettings.MapLowThreshold = Math.Max(1, value);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateTemperatureDropThreshold(decimal value)
+    {
+        _clinicSettings.TemperatureDropAlertDelta = value <= 0 ? 0.5m : value;
+        await SaveClinicSettingsAsync();
+    }
+
     private async Task SaveFieldValueAsync(Guid bucketId, string fieldKey, decimal? value)
     {
         try
@@ -717,6 +868,7 @@
         _isDisposed = true;
         SpeechService.SpeechRecognized -= OnSpeechRecognized;
         SpeechService.ListeningChanged -= OnListeningChanged;
+        SpeechService.StatusChanged -= OnSpeechStatusChanged;
 
         if (!SpeechService.IsListening)
             return;

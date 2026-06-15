@@ -15,6 +15,8 @@ namespace VetAnesthesiaApp.Services.Data
         Task<List<AnesthesiaSession>> GetSessionsAsync();
         Task<AnesthesiaSession?> GetSessionAsync(Guid sessionId);
         Task SaveSessionAsync(AnesthesiaSession session);
+        Task<ClinicSettings> GetClinicSettingsAsync();
+        Task SaveClinicSettingsAsync(ClinicSettings settings);
 
         Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId);
         Task<AnesthesiaBucket?> GetBucketAsync(Guid bucketId);

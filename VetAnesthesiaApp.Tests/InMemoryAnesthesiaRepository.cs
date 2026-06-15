@@ -9,6 +9,7 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
     private readonly Dictionary<Guid, AnesthesiaSession> _sessions = new();
     private readonly Dictionary<Guid, AnesthesiaBucket> _buckets = new();
     private readonly Dictionary<Guid, VoiceEntryLog> _voiceLogs = new();
+    private ClinicSettings _clinicSettings = new();
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -39,6 +40,15 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
     public Task SaveSessionAsync(AnesthesiaSession session)
     {
         _sessions[session.Id] = session;
+        return Task.CompletedTask;
+    }
+
+    public Task<ClinicSettings> GetClinicSettingsAsync() =>
+        Task.FromResult(_clinicSettings);
+
+    public Task SaveClinicSettingsAsync(ClinicSettings settings)
+    {
+        _clinicSettings = settings;
         return Task.CompletedTask;
     }
 

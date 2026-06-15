@@ -3,6 +3,7 @@ using CommunityToolkit.Maui.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MudBlazor.Services;
+using VetAnesthesiaApp.Services.Alerts;
 using VetAnesthesiaApp.Services.Buckets;
 using VetAnesthesiaApp.Services.Data;
 using VetAnesthesiaApp.Services.Pdf;
@@ -40,6 +41,7 @@ namespace VetAnesthesiaApp
 
 
             builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+            builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 
             builder.Services.AddScoped<IVoiceParserService, VoiceParserService>();
