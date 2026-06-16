@@ -70,7 +70,7 @@ public class AndroidPdfExportService : IPdfExportService
         {
             using var page = document.StartPage(new PdfDocument.PageInfo.Builder(PageWidth, PageHeight, pageNumber).Create())
                 ?? throw new InvalidOperationException("Android PDF page creation failed.");
-            DrawBucketPage(page.Canvas!, animal, session, settings.ClinicName, bucketPage, fields, pageNumber, bucketPages.Count);
+            DrawBucketPage(page.Canvas!, animal, session, settings.ClinicName, GetPdfTitle(settings), bucketPage, fields, pageNumber, bucketPages.Count);
             document.FinishPage(page);
             pageNumber++;
         }
@@ -81,7 +81,7 @@ public class AndroidPdfExportService : IPdfExportService
             {
                 using var page = document.StartPage(new PdfDocument.PageInfo.Builder(PageWidth, PageHeight, pageNumber).Create())
                     ?? throw new InvalidOperationException("Android PDF notes page creation failed.");
-                DrawNotesPage(page.Canvas!, animal, session, settings.ClinicName, notePage, pageNumber);
+                DrawNotesPage(page.Canvas!, animal, session, settings.ClinicName, GetPdfTitle(settings), notePage, pageNumber);
                 document.FinishPage(page);
                 pageNumber++;
             }
@@ -113,6 +113,7 @@ public class AndroidPdfExportService : IPdfExportService
         Animal animal,
         AnesthesiaSession session,
         string? clinicName,
+        string pdfTitle,
         IReadOnlyList<AnesthesiaBucket> buckets,
         IReadOnlyList<(string Label, Func<AnesthesiaBucket, string> Selector)> fields,
         int pageNumber,
@@ -154,7 +155,7 @@ public class AndroidPdfExportService : IPdfExportService
 
         var y = Margin;
 
-        canvas.DrawText("Vet Anesthesia Record", Margin, y, titlePaint);
+        canvas.DrawText(pdfTitle, Margin, y, titlePaint);
         y += 32;
 
         if (!string.IsNullOrWhiteSpace(clinicName))
@@ -223,6 +224,7 @@ public class AndroidPdfExportService : IPdfExportService
         Animal animal,
         AnesthesiaSession session,
         string? clinicName,
+        string pdfTitle,
         IReadOnlyList<string> notes,
         int pageNumber)
     {
@@ -244,7 +246,7 @@ public class AndroidPdfExportService : IPdfExportService
         };
 
         var y = Margin;
-        canvas.DrawText("Vet Anesthesia Record", Margin, y, titlePaint);
+        canvas.DrawText(pdfTitle, Margin, y, titlePaint);
         y += 32;
 
         if (!string.IsNullOrWhiteSpace(clinicName))
@@ -336,4 +338,9 @@ public class AndroidPdfExportService : IPdfExportService
 
         return lines.Count == 0 ? new List<string> { "-" } : lines;
     }
+
+    private static string GetPdfTitle(ClinicSettings settings) =>
+        string.IsNullOrWhiteSpace(settings.PdfDocumentTitle)
+            ? "Anesthesia Record"
+            : settings.PdfDocumentTitle.Trim();
 }

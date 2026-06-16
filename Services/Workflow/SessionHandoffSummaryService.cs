@@ -19,11 +19,9 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
             .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
             .TakeLast(3)
             .ToList();
-        var exportTarget = ClinicExportTargets.Resolve(settings.PreferredExportTargetKey);
+        var exportTarget = ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey);
 
-        summary.AppendLine(exportTarget.Key == ClinicExportTargets.PdfAttachmentNote
-            ? "VetPulse PDF attachment note"
-            : "VetPulse clinic chart note");
+        summary.AppendLine(exportTarget.NoteTitle);
         summary.AppendLine($"Target workflow: {exportTarget.Label}");
 
         if (!string.IsNullOrWhiteSpace(settings.ClinicName))
@@ -37,9 +35,9 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
         summary.AppendLine($"End: {(session.SessionEndTime.HasValue ? session.SessionEndTime.Value.ToString("yyyy-MM-dd hh:mm tt") : "In progress")}");
         summary.AppendLine($"Monitoring buckets: {buckets.Count}");
 
-        if (exportTarget.Key == ClinicExportTargets.PdfAttachmentNote)
+        if (!string.IsNullOrWhiteSpace(exportTarget.PrimaryRecordInstruction))
         {
-            summary.AppendLine("Primary record: Attach the VetPulse PDF anesthesia record to the patient chart.");
+            summary.AppendLine($"Primary record: {exportTarget.PrimaryRecordInstruction}");
         }
 
         if (latestBucket is not null)

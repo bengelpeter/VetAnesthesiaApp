@@ -59,7 +59,7 @@ public class PdfExportService : IPdfExportService
                 page.Header().Column(column =>
                 {
                     column.Spacing(4);
-                    column.Item().Text("Vet Anesthesia Record").FontSize(18).Bold();
+                    column.Item().Text(GetPdfTitle(settings)).FontSize(18).Bold();
                     if (!string.IsNullOrWhiteSpace(settings.ClinicName))
                     {
                         column.Item().Text($"Clinic: {settings.ClinicName.Trim()}");
@@ -134,6 +134,11 @@ public class PdfExportService : IPdfExportService
             ? value.Value.ToString("0")
             : value.Value.ToString("0.##");
     }
+
+    private static string GetPdfTitle(ClinicSettings settings) =>
+        string.IsNullOrWhiteSpace(settings.PdfDocumentTitle)
+            ? "Anesthesia Record"
+            : settings.PdfDocumentTitle.Trim();
 
     private static QuestPDF.Infrastructure.IContainer HeaderCellStyle(QuestPDF.Infrastructure.IContainer container)
     {

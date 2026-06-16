@@ -123,13 +123,17 @@ public class SessionWorkflowTests
             new ClinicSettings
             {
                 ClinicName = "Main Street Vet",
-                PreferredExportTargetKey = ClinicExportTargets.ClinicChartNote
+                PreferredExportTargetKey = ClinicExportTargets.ClinicChartNote,
+                ClinicChartExportLabel = "SOAP note",
+                ClinicChartExportNoteTitle = "Surgery anesthesia SOAP note",
+                ClinicChartExportDescription = "Paste this SOAP note into the patient chart."
             },
             buckets,
             alerts,
             completion);
 
-        Assert.Contains("VetPulse clinic chart note", summary);
+        Assert.Contains("Surgery anesthesia SOAP note", summary);
+        Assert.Contains("Target workflow: SOAP note", summary);
         Assert.Contains("Clinic: Main Street Vet", summary);
         Assert.Contains("Patient: Ember (Canine)", summary);
         Assert.Contains("Procedure: Dental", summary);
@@ -173,15 +177,18 @@ public class SessionWorkflowTests
             session,
             new ClinicSettings
             {
-                PreferredExportTargetKey = ClinicExportTargets.PdfAttachmentNote
+                PreferredExportTargetKey = ClinicExportTargets.PdfAttachmentNote,
+                PdfAttachmentExportLabel = "PIMS attachment note",
+                PdfAttachmentExportNoteTitle = "Post-op attachment note",
+                PdfAttachmentInstruction = "Attach the anesthesia PDF to the surgery record."
             },
             buckets,
             Array.Empty<SessionAlert>(),
             completion);
 
-        Assert.Contains("VetPulse PDF attachment note", summary);
-        Assert.Contains("Primary record: Attach the VetPulse PDF anesthesia record", summary);
-        Assert.Contains("Target workflow: PDF attachment note", summary);
+        Assert.Contains("Post-op attachment note", summary);
+        Assert.Contains("Primary record: Attach the anesthesia PDF to the surgery record.", summary);
+        Assert.Contains("Target workflow: PIMS attachment note", summary);
     }
 
     [Fact]
@@ -215,5 +222,22 @@ public class SessionWorkflowTests
         Assert.Contains("\"Ember\"", csv);
         Assert.Contains("\"Dental\"", csv);
         Assert.Contains("\"stable\"", csv);
+    }
+
+    [Fact]
+    public void BuildOptions_UsesCustomClinicSettingsLabels()
+    {
+        var settings = new ClinicSettings
+        {
+            ClinicChartExportLabel = "Record note",
+            ClinicChartExportNoteTitle = "Chart-ready record note",
+            PdfAttachmentExportLabel = "File attachment note",
+            PdfAttachmentExportNoteTitle = "Attachment-ready note"
+        };
+
+        var options = ClinicExportTargets.BuildOptions(settings);
+
+        Assert.Contains(options, x => x.Key == ClinicExportTargets.ClinicChartNote && x.Label == "Record note" && x.NoteTitle == "Chart-ready record note");
+        Assert.Contains(options, x => x.Key == ClinicExportTargets.PdfAttachmentNote && x.Label == "File attachment note" && x.NoteTitle == "Attachment-ready note");
     }
 }

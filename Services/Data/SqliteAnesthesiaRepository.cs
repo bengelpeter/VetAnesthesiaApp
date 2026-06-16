@@ -158,6 +158,16 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
     {
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ClinicName), "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PreferredExportTargetKey), "TEXT NOT NULL DEFAULT 'ClinicChartNote'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfDocumentTitle), "TEXT NOT NULL DEFAULT 'Anesthesia Record'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ClinicChartExportLabel), "TEXT NOT NULL DEFAULT 'Clinic chart note'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ClinicChartExportNoteTitle), "TEXT NOT NULL DEFAULT 'Anesthesia chart note'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ClinicChartExportDescription), "TEXT NOT NULL DEFAULT 'Paste a complete anesthesia note directly into the patient chart.'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentExportLabel), "TEXT NOT NULL DEFAULT 'PDF attachment note'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentExportNoteTitle), "TEXT NOT NULL DEFAULT 'Anesthesia PDF attachment note'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentExportDescription), "TEXT NOT NULL DEFAULT 'Attach the PDF record and paste a short note that points staff to it.'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentInstruction), "TEXT NOT NULL DEFAULT 'Attach the exported anesthesia PDF record to the patient chart.'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvExportLabel), "TEXT NOT NULL DEFAULT 'Bucket CSV'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvShareTitle), "TEXT NOT NULL DEFAULT 'Share bucket CSV'");
     }
 
     private async Task EnsureColumnAsync(string tableName, string columnName, string columnDefinition)

@@ -92,13 +92,13 @@
                 <MudButton OnClick="CopyHandoffSummary"
                            Variant="Variant.Outlined"
                            Color="Color.Secondary">
-                    Copy Export Note
+                    Copy @SelectedExportTarget.Label
                 </MudButton>
 
                 <MudButton OnClick="ShareBucketCsv"
                            Variant="Variant.Outlined"
                            Color="Color.Secondary">
-                    Share Bucket CSV
+                    Share @GetCsvLabel()
                 </MudButton>
 
                 <MudButton OnClick="ToggleSessionComplete"
@@ -181,7 +181,7 @@
                                ValueChanged="UpdatePreferredExportTarget"
                                Variant="Variant.Outlined"
                                Margin="Margin.Dense">
-                        @foreach (var target in ClinicExportTargets.All)
+                        @foreach (var target in AvailableExportTargets)
                         {
                             <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
                         }
@@ -191,6 +191,96 @@
                 <MudItem xs="12" sm="6" md="6">
                     <MudText Typo="Typo.caption">Export Workflow</MudText>
                     <MudText Typo="Typo.body2">@SelectedExportTarget.Description</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="PDF Title"
+                                  Value="@_clinicSettings.PdfDocumentTitle"
+                                  ValueChanged="UpdatePdfDocumentTitle"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="Chart Note Label"
+                                  Value="@_clinicSettings.ClinicChartExportLabel"
+                                  ValueChanged="UpdateClinicChartExportLabel"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="Chart Note Title"
+                                  Value="@_clinicSettings.ClinicChartExportNoteTitle"
+                                  ValueChanged="UpdateClinicChartExportNoteTitle"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="PDF Note Label"
+                                  Value="@_clinicSettings.PdfAttachmentExportLabel"
+                                  ValueChanged="UpdatePdfAttachmentExportLabel"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="PDF Note Title"
+                                  Value="@_clinicSettings.PdfAttachmentExportNoteTitle"
+                                  ValueChanged="UpdatePdfAttachmentExportNoteTitle"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="CSV Label"
+                                  Value="@_clinicSettings.CsvExportLabel"
+                                  ValueChanged="UpdateCsvExportLabel"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string"
+                                  Label="CSV Share Title"
+                                  Value="@_clinicSettings.CsvShareTitle"
+                                  ValueChanged="UpdateCsvShareTitle"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Chart Note Description"
+                                  Value="@_clinicSettings.ClinicChartExportDescription"
+                                  ValueChanged="UpdateClinicChartExportDescription"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="PDF Note Description"
+                                  Value="@_clinicSettings.PdfAttachmentExportDescription"
+                                  ValueChanged="UpdatePdfAttachmentExportDescription"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="PDF Attachment Instruction"
+                                  Value="@_clinicSettings.PdfAttachmentInstruction"
+                                  ValueChanged="UpdatePdfAttachmentInstruction"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
                 </MudItem>
 
                 <MudItem xs="12" sm="6" md="3">
@@ -352,13 +442,13 @@
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Secondary"
                            OnClick="CopyHandoffSummary">
-                    Copy Note
+                    Copy @SelectedExportTarget.Label
                 </MudButton>
 
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Secondary"
                            OnClick="ShareBucketCsv">
-                    Share CSV
+                    Share @GetCsvLabel()
                 </MudButton>
             </MudStack>
 
@@ -701,7 +791,9 @@
     private string _debugStatus = "-";
     private SpeechStatusLevel _voiceStatusLevel = SpeechStatusLevel.Info;
 
-    private ClinicExportTargetOption SelectedExportTarget => ClinicExportTargets.Resolve(_clinicSettings.PreferredExportTargetKey);
+    private IReadOnlyList<ClinicExportTargetOption> AvailableExportTargets => ClinicExportTargets.BuildOptions(_clinicSettings);
+
+    private ClinicExportTargetOption SelectedExportTarget => ClinicExportTargets.Resolve(_clinicSettings, _clinicSettings.PreferredExportTargetKey);
 
     protected override async Task OnInitializedAsync()
     {
@@ -1019,6 +1111,66 @@
         await SaveClinicSettingsAsync();
     }
 
+    private async Task UpdatePdfDocumentTitle(string value)
+    {
+        _clinicSettings.PdfDocumentTitle = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportLabel(string value)
+    {
+        _clinicSettings.ClinicChartExportLabel = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportNoteTitle(string value)
+    {
+        _clinicSettings.ClinicChartExportNoteTitle = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportDescription(string value)
+    {
+        _clinicSettings.ClinicChartExportDescription = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportLabel(string value)
+    {
+        _clinicSettings.PdfAttachmentExportLabel = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportNoteTitle(string value)
+    {
+        _clinicSettings.PdfAttachmentExportNoteTitle = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportDescription(string value)
+    {
+        _clinicSettings.PdfAttachmentExportDescription = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentInstruction(string value)
+    {
+        _clinicSettings.PdfAttachmentInstruction = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateCsvExportLabel(string value)
+    {
+        _clinicSettings.CsvExportLabel = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateCsvShareTitle(string value)
+    {
+        _clinicSettings.CsvShareTitle = value;
+        await SaveClinicSettingsAsync();
+    }
+
     private async Task UndoLastVoiceEntry()
     {
         try
@@ -1047,8 +1199,11 @@
             return;
 
         var filePath = await SessionStructuredExportService.ExportBucketCsvAsync(_animal, _session, _buckets);
-        await FileShareService.ShareFileAsync(filePath, "Share bucket CSV");
-        Snackbar.Add("Bucket CSV ready to share.", Severity.Success);
+        var shareTitle = string.IsNullOrWhiteSpace(_clinicSettings.CsvShareTitle)
+            ? $"Share {GetCsvLabel()}"
+            : _clinicSettings.CsvShareTitle.Trim();
+        await FileShareService.ShareFileAsync(filePath, shareTitle);
+        Snackbar.Add($"{GetCsvLabel()} ready to share.", Severity.Success);
     }
 
     private async Task ToggleSessionComplete()
@@ -1170,4 +1325,9 @@
 
         return log.Applied ? "Applied" : "Needs review";
     }
+
+    private string GetCsvLabel() =>
+        string.IsNullOrWhiteSpace(_clinicSettings.CsvExportLabel)
+            ? "Bucket CSV"
+            : _clinicSettings.CsvExportLabel.Trim();
 }
