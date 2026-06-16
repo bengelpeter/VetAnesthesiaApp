@@ -55,7 +55,12 @@ public class WorkflowConfigurationTests
             RequiredCompletionFieldKeysCsv = "HeartRate,Map",
             PdfDocumentTitle = "Anesthesia Attachment",
             ClinicChartExportLabel = "SOAP note",
-            CsvShareTitle = "Share surgery bucket CSV"
+            CsvShareTitle = "Share surgery bucket CSV",
+            CurrentSoftwareName = "Cornerstone",
+            ChartCopyDestination = "Procedure note field",
+            PdfAttachmentDestination = "Patient attachments",
+            PreferredNoteWording = "Keep it brief and chart-ready.",
+            PilotWorkflowNotes = "Copy note first.\nAttach PDF second."
         };
 
         var template = await service.SaveTemplateFromSettingsAsync("ER handoff", "PDF-first workflow", settings);
@@ -72,6 +77,11 @@ public class WorkflowConfigurationTests
         Assert.Equal("Anesthesia Attachment", applied.PdfDocumentTitle);
         Assert.Equal("SOAP note", applied.ClinicChartExportLabel);
         Assert.Equal("Share surgery bucket CSV", applied.CsvShareTitle);
+        Assert.Equal("Cornerstone", applied.CurrentSoftwareName);
+        Assert.Equal("Procedure note field", applied.ChartCopyDestination);
+        Assert.Equal("Patient attachments", applied.PdfAttachmentDestination);
+        Assert.Equal("Keep it brief and chart-ready.", applied.PreferredNoteWording);
+        Assert.Equal("Copy note first.\nAttach PDF second.", applied.PilotWorkflowNotes);
 
         await service.DeleteTemplateAsync(template.Id);
 

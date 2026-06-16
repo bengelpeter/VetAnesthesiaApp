@@ -287,6 +287,54 @@
                                   Margin="Margin.Dense" />
                 </MudItem>
 
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string"
+                                  Label="Current Clinic Software"
+                                  Value="@_clinicSettings.CurrentSoftwareName"
+                                  ValueChanged="UpdateCurrentSoftwareName"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string"
+                                  Label="Chart Copy Destination"
+                                  Value="@_clinicSettings.ChartCopyDestination"
+                                  ValueChanged="UpdateChartCopyDestination"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string"
+                                  Label="PDF Attachment Destination"
+                                  Value="@_clinicSettings.PdfAttachmentDestination"
+                                  ValueChanged="UpdatePdfAttachmentDestination"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Preferred Note Wording"
+                                  Value="@_clinicSettings.PreferredNoteWording"
+                                  ValueChanged="UpdatePreferredNoteWording"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Lines="3" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField T="string"
+                                  Label="Pilot Workflow Notes"
+                                  Value="@_clinicSettings.PilotWorkflowNotes"
+                                  ValueChanged="UpdatePilotWorkflowNotes"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Lines="4"
+                                  HelperText="One workflow reminder per line: what gets copied, attached, checked, or corrected." />
+                </MudItem>
+
                 <MudItem xs="12" sm="6" md="3">
                     <MudNumericField T="int"
                                      Label="Monitoring Interval (min)"
@@ -335,6 +383,50 @@
                                      Variant="Variant.Outlined"
                                      Margin="Margin.Dense"
                                      HideSpinButtons="true" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Android Pilot Workflow Snapshot</MudText>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Use this with your wife during real procedures so the note text and handoff workflow match what her clinic actually needs.
+            </MudText>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Software</MudText>
+                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.CurrentSoftwareName)</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Copy Destination</MudText>
+                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.ChartCopyDestination)</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">PDF Attachment</MudText>
+                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.PdfAttachmentDestination)</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Required Handoff Fields</MudText>
+                    <MudText Typo="Typo.body1">@GetRequiredFieldSummary()</MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Preferred Wording</MudText>
+                    <MudText Typo="Typo.body2">@DisplayOrDash(_clinicSettings.PreferredNoteWording)</MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Workflow Notes</MudText>
+                    @if (GetPilotWorkflowItems().Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">-</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var item in GetPilotWorkflowItems())
+                        {
+                            <MudText Typo="Typo.body2">- @item</MudText>
+                        }
+                    }
                 </MudItem>
             </MudGrid>
         </MudPaper>
@@ -1191,6 +1283,36 @@
         await SaveClinicSettingsAsync();
     }
 
+    private async Task UpdateCurrentSoftwareName(string value)
+    {
+        _clinicSettings.CurrentSoftwareName = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateChartCopyDestination(string value)
+    {
+        _clinicSettings.ChartCopyDestination = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentDestination(string value)
+    {
+        _clinicSettings.PdfAttachmentDestination = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePreferredNoteWording(string value)
+    {
+        _clinicSettings.PreferredNoteWording = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePilotWorkflowNotes(string value)
+    {
+        _clinicSettings.PilotWorkflowNotes = value;
+        await SaveClinicSettingsAsync();
+    }
+
     private async Task UndoLastVoiceEntry()
     {
         try
@@ -1494,6 +1616,25 @@
             ? $"{Math.Round(_telemetrySummary.TimeToCompletion.Value.TotalMinutes, 1):0.#} min"
             : "Open";
 
+    private string GetRequiredFieldSummary()
+    {
+        var requiredKeys = ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings);
+        var labels = _configuredFields
+            .Where(x => requiredKeys.Contains(x.Key))
+            .Select(x => x.Label)
+            .ToList();
+
+        return labels.Count == 0 ? "-" : string.Join(", ", labels);
+    }
+
+    private List<string> GetPilotWorkflowItems() =>
+        (_clinicSettings.PilotWorkflowNotes ?? string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+    private static string DisplayOrDash(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+
     private static string GetTemplateExportTargetLabel(WorkflowTemplate template)
     {
         var settings = new ClinicSettings
@@ -1505,7 +1646,12 @@
             PdfAttachmentExportLabel = template.PdfAttachmentExportLabel,
             PdfAttachmentExportNoteTitle = template.PdfAttachmentExportNoteTitle,
             PdfAttachmentExportDescription = template.PdfAttachmentExportDescription,
-            PdfAttachmentInstruction = template.PdfAttachmentInstruction
+            PdfAttachmentInstruction = template.PdfAttachmentInstruction,
+            CurrentSoftwareName = template.CurrentSoftwareName,
+            ChartCopyDestination = template.ChartCopyDestination,
+            PdfAttachmentDestination = template.PdfAttachmentDestination,
+            PreferredNoteWording = template.PreferredNoteWording,
+            PilotWorkflowNotes = template.PilotWorkflowNotes
         };
 
         return ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey).Label;

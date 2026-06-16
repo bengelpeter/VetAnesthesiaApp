@@ -49,6 +49,8 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
             summary.AppendLine($"Primary record: {exportTarget.PrimaryRecordInstruction}");
         }
 
+        AppendPilotWorkflow(summary, settings, configuredFields, _chartConfigurationService.GetRequiredCompletionFieldKeys(settings));
+
         if (latestBucket is not null)
         {
             summary.AppendLine($"Latest bucket: {latestBucket.BucketStartTime:hh:mm tt}");
@@ -106,4 +108,49 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
 
     private static string FormatOrNotRecorded(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "Not recorded" : value.Trim();
+
+    private static void AppendPilotWorkflow(
+        StringBuilder summary,
+        ClinicSettings settings,
+        IReadOnlyList<ChartFieldDefinition> configuredFields,
+        IReadOnlyCollection<string> requiredFieldKeys)
+    {
+        var checklistItems = (settings.PilotWorkflowNotes ?? string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        var requiredFieldLabels = configuredFields
+            .Where(field => requiredFieldKeys.Contains(field.Key))
+            .Select(field => field.Label)
+            .ToList();
+
+        if (string.IsNullOrWhiteSpace(settings.CurrentSoftwareName)
+            && string.IsNullOrWhiteSpace(settings.ChartCopyDestination)
+            && string.IsNullOrWhiteSpace(settings.PdfAttachmentDestination)
+            && string.IsNullOrWhiteSpace(settings.PreferredNoteWording)
+            && requiredFieldLabels.Count == 0
+            && checklistItems.Count == 0)
+        {
+            return;
+        }
+
+        summary.AppendLine("Pilot workflow:");
+
+        if (!string.IsNullOrWhiteSpace(settings.CurrentSoftwareName))
+            summary.AppendLine($"- Current software: {settings.CurrentSoftwareName.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(settings.ChartCopyDestination))
+            summary.AppendLine($"- Copy chart note into: {settings.ChartCopyDestination.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(settings.PdfAttachmentDestination))
+            summary.AppendLine($"- Attach PDF in: {settings.PdfAttachmentDestination.Trim()}");
+
+        if (!string.IsNullOrWhiteSpace(settings.PreferredNoteWording))
+            summary.AppendLine($"- Preferred wording: {settings.PreferredNoteWording.Trim()}");
+
+        if (requiredFieldLabels.Count > 0)
+            summary.AppendLine($"- Required handoff fields: {string.Join(", ", requiredFieldLabels)}");
+
+        foreach (var item in checklistItems)
+            summary.AppendLine($"- Workflow note: {item}");
+    }
 }

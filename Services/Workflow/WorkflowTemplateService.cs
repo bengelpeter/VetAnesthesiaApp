@@ -38,6 +38,11 @@ public class WorkflowTemplateService : IWorkflowTemplateService
             PdfAttachmentInstruction = settings.PdfAttachmentInstruction,
             CsvExportLabel = settings.CsvExportLabel,
             CsvShareTitle = settings.CsvShareTitle,
+            CurrentSoftwareName = settings.CurrentSoftwareName,
+            ChartCopyDestination = settings.ChartCopyDestination,
+            PdfAttachmentDestination = settings.PdfAttachmentDestination,
+            PreferredNoteWording = settings.PreferredNoteWording,
+            PilotWorkflowNotes = settings.PilotWorkflowNotes,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -64,6 +69,11 @@ public class WorkflowTemplateService : IWorkflowTemplateService
         settings.PdfAttachmentInstruction = template.PdfAttachmentInstruction;
         settings.CsvExportLabel = template.CsvExportLabel;
         settings.CsvShareTitle = template.CsvShareTitle;
+        settings.CurrentSoftwareName = template.CurrentSoftwareName;
+        settings.ChartCopyDestination = template.ChartCopyDestination;
+        settings.PdfAttachmentDestination = template.PdfAttachmentDestination;
+        settings.PreferredNoteWording = template.PreferredNoteWording;
+        settings.PilotWorkflowNotes = template.PilotWorkflowNotes;
     }
 
     public Task DeleteTemplateAsync(Guid templateId) =>

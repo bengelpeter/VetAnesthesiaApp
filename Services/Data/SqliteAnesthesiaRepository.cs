@@ -212,6 +212,11 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentInstruction), "TEXT NOT NULL DEFAULT 'Attach the exported anesthesia PDF record to the patient chart.'");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvExportLabel), "TEXT NOT NULL DEFAULT 'Bucket CSV'");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvShareTitle), "TEXT NOT NULL DEFAULT 'Share bucket CSV'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CurrentSoftwareName), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ChartCopyDestination), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentDestination), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PreferredNoteWording), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PilotWorkflowNotes), "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ChartFieldLabelsJson), "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ChartFieldOrderCsv), "TEXT NOT NULL DEFAULT ''");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.RequiredCompletionFieldKeysCsv), "TEXT NOT NULL DEFAULT 'HeartRate,RespiratoryRate,Spo2,Etco2,Temperature,Map'");
@@ -220,6 +225,11 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
     private async Task EnsureWorkflowTemplateColumnsAsync()
     {
         await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.PreferredExportTargetKey), "TEXT NOT NULL DEFAULT 'ClinicChartNote'");
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.CurrentSoftwareName), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.ChartCopyDestination), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.PdfAttachmentDestination), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.PreferredNoteWording), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.PilotWorkflowNotes), "TEXT NOT NULL DEFAULT ''");
     }
 
     private async Task EnsureColumnAsync(string tableName, string columnName, string columnDefinition)

@@ -26,4 +26,5 @@ See the parent workspace for the current product reset docs:
 - [VetPulse V2 Reset Plan](C:/CDev/VetAnesthesiaApp/docs/VetPulse-V2-Reset-Plan.md)
 - [Zero-Budget Execution Plan](C:/CDev/VetAnesthesiaApp/docs/Zero-Budget-Execution-Plan.md)
 - [Pilot Clinic Interview Script](C:/CDev/VetAnesthesiaApp/docs/Pilot-Clinic-Interview-Script.md)
+- [Android Pilot Workflow Runbook](C:/CDev/VetAnesthesiaApp/docs/Android-Pilot-Workflow-Runbook.md)
 - [Product Backlog](C:/CDev/VetAnesthesiaApp/docs/Product-Backlog.md)

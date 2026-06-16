@@ -25,6 +25,11 @@ public class ClinicSettings
     public string PdfAttachmentInstruction { get; set; } = "Attach the exported anesthesia PDF record to the patient chart.";
     public string CsvExportLabel { get; set; } = "Bucket CSV";
     public string CsvShareTitle { get; set; } = "Share bucket CSV";
+    public string CurrentSoftwareName { get; set; } = "";
+    public string ChartCopyDestination { get; set; } = "";
+    public string PdfAttachmentDestination { get; set; } = "";
+    public string PreferredNoteWording { get; set; } = "";
+    public string PilotWorkflowNotes { get; set; } = "";
     public string ChartFieldLabelsJson { get; set; } = "";
     public string ChartFieldOrderCsv { get; set; } = "";
     public string RequiredCompletionFieldKeysCsv { get; set; } = "HeartRate,RespiratoryRate,Spo2,Etco2,Temperature,Map";

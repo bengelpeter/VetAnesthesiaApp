@@ -200,6 +200,61 @@ public class SessionWorkflowTests
     }
 
     [Fact]
+    public void Build_IncludesPilotWorkflowGuidance_WhenConfigured()
+    {
+        var animal = new Animal { Name = "Maple", Species = "Canine" };
+        var session = new AnesthesiaSession
+        {
+            Procedure = "Mass removal",
+            SessionStartTime = new DateTime(2026, 6, 15, 11, 0, 0),
+            SessionEndTime = new DateTime(2026, 6, 15, 11, 35, 0)
+        };
+        var buckets = new[]
+        {
+            new AnesthesiaBucket
+            {
+                BucketStartTime = new DateTime(2026, 6, 15, 11, 30, 0),
+                HeartRate = 94,
+                Map = 70,
+                Spo2 = 99
+            }
+        };
+        var settings = new ClinicSettings
+        {
+            CurrentSoftwareName = "Avimark",
+            ChartCopyDestination = "Surgery note field",
+            PdfAttachmentDestination = "Patient documents tab",
+            PreferredNoteWording = "Use concise post-op wording with anesthesia stability called out.",
+            PilotWorkflowNotes = "Paste the note before recovery.\nAttach the PDF before closing the chart.",
+            ChartFieldLabelsJson = "{\"HeartRate\":\"Pulse\",\"Map\":\"Mean BP\"}",
+            RequiredCompletionFieldKeysCsv = "HeartRate,Map"
+        };
+        var completion = _completionEvaluator.Evaluate(
+            session,
+            buckets,
+            settings,
+            Array.Empty<VoiceEntryLog>(),
+            new DateTime(2026, 6, 15, 11, 34, 0));
+
+        var summary = _handoffSummaryService.Build(
+            animal,
+            session,
+            settings,
+            buckets,
+            Array.Empty<SessionAlert>(),
+            completion);
+
+        Assert.Contains("Pilot workflow:", summary);
+        Assert.Contains("Current software: Avimark", summary);
+        Assert.Contains("Copy chart note into: Surgery note field", summary);
+        Assert.Contains("Attach PDF in: Patient documents tab", summary);
+        Assert.Contains("Preferred wording: Use concise post-op wording with anesthesia stability called out.", summary);
+        Assert.Contains("Required handoff fields: Pulse, Mean BP", summary);
+        Assert.Contains("Workflow note: Paste the note before recovery.", summary);
+        Assert.Contains("Workflow note: Attach the PDF before closing the chart.", summary);
+    }
+
+    [Fact]
     public void BuildBucketCsv_UsesConfiguredLabelsAndOrder()
     {
         var animal = new Animal { Name = "Ember", Species = "Canine" };
