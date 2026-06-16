@@ -3,16 +3,19 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using VetAnesthesiaApp.Models;
 using VetAnesthesiaApp.Services.Data;
+using VetAnesthesiaApp.Services.Workflow;
 
 namespace VetAnesthesiaApp.Services.Pdf;
 
 public class PdfExportService : IPdfExportService
 {
     private readonly IAnesthesiaRepository _repository;
+    private readonly IChartConfigurationService _chartConfigurationService;
 
-    public PdfExportService(IAnesthesiaRepository repository)
+    public PdfExportService(IAnesthesiaRepository repository, IChartConfigurationService chartConfigurationService)
     {
         _repository = repository;
+        _chartConfigurationService = chartConfigurationService;
     }
 
     public async Task<string> ExportSessionPdfAsync(Guid sessionId)
@@ -31,19 +34,9 @@ public class PdfExportService : IPdfExportService
             .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
             .ToList();
 
-        var fields = new List<(string Label, Func<AnesthesiaBucket, string> Selector)>
-        {
-            ("ISO", b => FormatDecimal(b.IsoPercent)),
-            ("O2", b => FormatDecimal(b.OxygenFlowRate)),
-            ("ETCO2", b => FormatDecimal(b.Etco2)),
-            ("SpO2", b => b.Spo2?.ToString() ?? "-"),
-            ("Temp", b => FormatDecimal(b.Temperature)),
-            ("HR", b => b.HeartRate?.ToString() ?? "-"),
-            ("RR", b => b.RespiratoryRate?.ToString() ?? "-"),
-            ("SYS", b => b.SystolicBp?.ToString() ?? "-"),
-            ("DIA", b => b.DiastolicBp?.ToString() ?? "-"),
-            ("MAP", b => b.Map?.ToString() ?? "-")
-        };
+        var fields = _chartConfigurationService.GetConfiguredFields(settings)
+            .Select(field => (field.Label, Selector: new Func<AnesthesiaBucket, string>(bucket => FormatDecimal(field.ValueSelector(bucket), field.IsWholeNumber))))
+            .ToList();
 
         var fileName = $"anesthesia-session-{sessionId}.pdf";
         var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
@@ -73,7 +66,7 @@ public class PdfExportService : IPdfExportService
                 page.Content().Column(column =>
                 {
                     column.Spacing(10);
-                    column.Item().Text("Recorded Vitals").Bold();
+                            column.Item().Text("Recorded Vitals").Bold();
 
                     column.Item().ScaleToFit().Table(table =>
                     {
@@ -133,6 +126,16 @@ public class PdfExportService : IPdfExportService
         return value.Value % 1 == 0
             ? value.Value.ToString("0")
             : value.Value.ToString("0.##");
+    }
+
+    private static string FormatDecimal(decimal? value, bool isWholeNumber)
+    {
+        if (!value.HasValue)
+            return "-";
+
+        return isWholeNumber
+            ? ((int)value.Value).ToString()
+            : FormatDecimal(value);
     }
 
     private static string GetPdfTitle(ClinicSettings settings) =>

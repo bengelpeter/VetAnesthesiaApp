@@ -2,18 +2,18 @@ using SQLite;
 
 namespace VetAnesthesiaApp.Models;
 
-public class ClinicSettings
+public class WorkflowTemplate
 {
     [PrimaryKey]
-    public int Id { get; set; } = 1;
+    public Guid Id { get; set; } = Guid.NewGuid();
 
-    public int MonitoringIntervalMinutes { get; set; } = 5;
-    public int MissingVitalsAlertAfterMinutes { get; set; } = 10;
-    public int Spo2LowThreshold { get; set; } = 95;
-    public int MapLowThreshold { get; set; } = 60;
-    public decimal TemperatureDropAlertDelta { get; set; } = 1.0m;
-    public bool EnableAlerts { get; set; } = true;
-    public string ClinicName { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+
+    public string ChartFieldLabelsJson { get; set; } = "";
+    public string ChartFieldOrderCsv { get; set; } = "";
+    public string RequiredCompletionFieldKeysCsv { get; set; } = "";
+
     public string PreferredExportTargetKey { get; set; } = "ClinicChartNote";
     public string PdfDocumentTitle { get; set; } = "Anesthesia Record";
     public string ClinicChartExportLabel { get; set; } = "Clinic chart note";
@@ -25,7 +25,7 @@ public class ClinicSettings
     public string PdfAttachmentInstruction { get; set; } = "Attach the exported anesthesia PDF record to the patient chart.";
     public string CsvExportLabel { get; set; } = "Bucket CSV";
     public string CsvShareTitle { get; set; } = "Share bucket CSV";
-    public string ChartFieldLabelsJson { get; set; } = "";
-    public string ChartFieldOrderCsv { get; set; } = "";
-    public string RequiredCompletionFieldKeysCsv { get; set; } = "HeartRate,RespiratoryRate,Spo2,Etco2,Temperature,Map";
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

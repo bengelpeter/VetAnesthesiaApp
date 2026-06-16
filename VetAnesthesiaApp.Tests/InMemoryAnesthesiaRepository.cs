@@ -9,6 +9,8 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
     private readonly Dictionary<Guid, AnesthesiaSession> _sessions = new();
     private readonly Dictionary<Guid, AnesthesiaBucket> _buckets = new();
     private readonly Dictionary<Guid, VoiceEntryLog> _voiceLogs = new();
+    private readonly Dictionary<Guid, WorkflowTemplate> _workflowTemplates = new();
+    private readonly Dictionary<Guid, SessionTelemetryEvent> _telemetryEvents = new();
     private ClinicSettings _clinicSettings = new();
 
     public Task InitializeAsync() => Task.CompletedTask;
@@ -52,6 +54,24 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
         return Task.CompletedTask;
     }
 
+    public Task<List<WorkflowTemplate>> GetWorkflowTemplatesAsync() =>
+        Task.FromResult(_workflowTemplates.Values.OrderBy(x => x.Name).ToList());
+
+    public Task<WorkflowTemplate?> GetWorkflowTemplateAsync(Guid templateId) =>
+        Task.FromResult(_workflowTemplates.TryGetValue(templateId, out var template) ? template : null);
+
+    public Task SaveWorkflowTemplateAsync(WorkflowTemplate template)
+    {
+        _workflowTemplates[template.Id] = template;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteWorkflowTemplateAsync(Guid templateId)
+    {
+        _workflowTemplates.Remove(templateId);
+        return Task.CompletedTask;
+    }
+
     public Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId) =>
         Task.FromResult(_buckets.Values
             .Where(x => x.SessionId == sessionId)
@@ -82,6 +102,18 @@ internal sealed class InMemoryAnesthesiaRepository : IAnesthesiaRepository
     public Task SaveVoiceLogAsync(VoiceEntryLog log)
     {
         _voiceLogs[log.Id] = log;
+        return Task.CompletedTask;
+    }
+
+    public Task<List<SessionTelemetryEvent>> GetSessionTelemetryEventsAsync(Guid sessionId) =>
+        Task.FromResult(_telemetryEvents.Values
+            .Where(x => x.SessionId == sessionId)
+            .OrderBy(x => x.OccurredAt)
+            .ToList());
+
+    public Task SaveSessionTelemetryEventAsync(SessionTelemetryEvent telemetryEvent)
+    {
+        _telemetryEvents[telemetryEvent.Id] = telemetryEvent;
         return Task.CompletedTask;
     }
 

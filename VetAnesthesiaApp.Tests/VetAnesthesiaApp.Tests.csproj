@@ -25,8 +25,10 @@
     <Compile Include="..\Models\AnesthesiaBucket.cs" Link="App\Models\AnesthesiaBucket.cs" />
     <Compile Include="..\Models\AnesthesiaSession.cs" Link="App\Models\AnesthesiaSession.cs" />
     <Compile Include="..\Models\ClinicSettings.cs" Link="App\Models\ClinicSettings.cs" />
+    <Compile Include="..\Models\SessionTelemetryEvent.cs" Link="App\Models\SessionTelemetryEvent.cs" />
     <Compile Include="..\Models\SessionAlert.cs" Link="App\Models\SessionAlert.cs" />
     <Compile Include="..\Models\VoiceEntryLog.cs" Link="App\Models\VoiceEntryLog.cs" />
+    <Compile Include="..\Models\WorkflowTemplate.cs" Link="App\Models\WorkflowTemplate.cs" />
     <Compile Include="..\Services\Data\IAnesthesiaRepository.cs" Link="App\Services\Data\IAnesthesiaRepository.cs" />
     <Compile Include="..\Services\Data\IBucketService.cs" Link="App\Services\Data\IBucketService.cs" />
     <Compile Include="..\Services\Alerts\ISessionAlertEvaluator.cs" Link="App\Services\Alerts\ISessionAlertEvaluator.cs" />
@@ -37,15 +39,23 @@
     <Compile Include="..\Services\PDF\PdfSessionExportCoordinator.cs" Link="App\Services\Pdf\PdfSessionExportCoordinator.cs" />
     <Compile Include="..\Services\PDF\PdfSessionExportResult.cs" Link="App\Services\Pdf\PdfSessionExportResult.cs" />
     <Compile Include="..\Services\Workflow\ISessionCompletionEvaluator.cs" Link="App\Services\Workflow\ISessionCompletionEvaluator.cs" />
+    <Compile Include="..\Services\Workflow\IChartConfigurationService.cs" Link="App\Services\Workflow\IChartConfigurationService.cs" />
     <Compile Include="..\Services\Workflow\ISessionHandoffSummaryService.cs" Link="App\Services\Workflow\ISessionHandoffSummaryService.cs" />
     <Compile Include="..\Services\Workflow\ISessionStructuredExportService.cs" Link="App\Services\Workflow\ISessionStructuredExportService.cs" />
+    <Compile Include="..\Services\Workflow\IWorkflowTelemetryService.cs" Link="App\Services\Workflow\IWorkflowTelemetryService.cs" />
+    <Compile Include="..\Services\Workflow\IWorkflowTemplateService.cs" Link="App\Services\Workflow\IWorkflowTemplateService.cs" />
+    <Compile Include="..\Services\Workflow\ChartConfigurationService.cs" Link="App\Services\Workflow\ChartConfigurationService.cs" />
+    <Compile Include="..\Services\Workflow\ChartFieldDefinition.cs" Link="App\Services\Workflow\ChartFieldDefinition.cs" />
     <Compile Include="..\Services\Workflow\ClinicExportTargetOption.cs" Link="App\Services\Workflow\ClinicExportTargetOption.cs" />
     <Compile Include="..\Services\Workflow\ClinicExportTargets.cs" Link="App\Services\Workflow\ClinicExportTargets.cs" />
     <Compile Include="..\Services\Workflow\SessionCompletionEvaluator.cs" Link="App\Services\Workflow\SessionCompletionEvaluator.cs" />
     <Compile Include="..\Services\Workflow\SessionCompletionItem.cs" Link="App\Services\Workflow\SessionCompletionItem.cs" />
     <Compile Include="..\Services\Workflow\SessionCompletionSummary.cs" Link="App\Services\Workflow\SessionCompletionSummary.cs" />
     <Compile Include="..\Services\Workflow\SessionHandoffSummaryService.cs" Link="App\Services\Workflow\SessionHandoffSummaryService.cs" />
+    <Compile Include="..\Services\Workflow\SessionTelemetrySummary.cs" Link="App\Services\Workflow\SessionTelemetrySummary.cs" />
     <Compile Include="..\Services\Workflow\SessionStructuredExportService.cs" Link="App\Services\Workflow\SessionStructuredExportService.cs" />
+    <Compile Include="..\Services\Workflow\WorkflowTelemetryService.cs" Link="App\Services\Workflow\WorkflowTelemetryService.cs" />
+    <Compile Include="..\Services\Workflow\WorkflowTemplateService.cs" Link="App\Services\Workflow\WorkflowTemplateService.cs" />
     <Compile Include="..\Services\Buckets\AnesthesiaFieldValidator.cs" Link="App\Services\Buckets\AnesthesiaFieldValidator.cs" />
     <Compile Include="..\Services\Buckets\BucketService.cs" Link="App\Services\Buckets\BucketService.cs" />
     <Compile Include="..\Services\Voice\ITextToNumberParser.cs" Link="App\Services\Voice\ITextToNumberParser.cs" />

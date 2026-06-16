@@ -17,6 +17,10 @@ namespace VetAnesthesiaApp.Services.Data
         Task SaveSessionAsync(AnesthesiaSession session);
         Task<ClinicSettings> GetClinicSettingsAsync();
         Task SaveClinicSettingsAsync(ClinicSettings settings);
+        Task<List<WorkflowTemplate>> GetWorkflowTemplatesAsync();
+        Task<WorkflowTemplate?> GetWorkflowTemplateAsync(Guid templateId);
+        Task SaveWorkflowTemplateAsync(WorkflowTemplate template);
+        Task DeleteWorkflowTemplateAsync(Guid templateId);
 
         Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId);
         Task<AnesthesiaBucket?> GetBucketAsync(Guid bucketId);
@@ -25,6 +29,8 @@ namespace VetAnesthesiaApp.Services.Data
 
         Task<List<VoiceEntryLog>> GetVoiceLogsAsync(Guid sessionId);
         Task SaveVoiceLogAsync(VoiceEntryLog log);
+        Task<List<SessionTelemetryEvent>> GetSessionTelemetryEventsAsync(Guid sessionId);
+        Task SaveSessionTelemetryEventAsync(SessionTelemetryEvent telemetryEvent);
         Task<List<AnesthesiaSession>> GetSessionsByAnimalAsync(Guid animalId);
     }
 }

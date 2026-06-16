@@ -5,6 +5,13 @@ namespace VetAnesthesiaApp.Services.Workflow;
 
 public class SessionHandoffSummaryService : ISessionHandoffSummaryService
 {
+    private readonly IChartConfigurationService _chartConfigurationService;
+
+    public SessionHandoffSummaryService(IChartConfigurationService chartConfigurationService)
+    {
+        _chartConfigurationService = chartConfigurationService;
+    }
+
     public string Build(
         Animal? animal,
         AnesthesiaSession session,
@@ -20,6 +27,8 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
             .TakeLast(3)
             .ToList();
         var exportTarget = ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey);
+        var configuredFields = _chartConfigurationService.GetConfiguredFields(settings);
+        var fieldMap = configuredFields.ToDictionary(x => x.Key, x => x.Label);
 
         summary.AppendLine(exportTarget.NoteTitle);
         summary.AppendLine($"Target workflow: {exportTarget.Label}");
@@ -44,9 +53,9 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
         {
             summary.AppendLine($"Latest bucket: {latestBucket.BucketStartTime:hh:mm tt}");
             summary.AppendLine(
-                $"Latest vitals: HR {FormatOrDash(latestBucket.HeartRate)}, RR {FormatOrDash(latestBucket.RespiratoryRate)}, SpO2 {FormatOrDash(latestBucket.Spo2)}, ETCO2 {FormatOrDash(latestBucket.Etco2)}, Temp {FormatOrDash(latestBucket.Temperature)}, MAP {FormatOrDash(latestBucket.Map)}");
+                $"Latest vitals: {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.HeartRate, "HR")} {FormatOrDash(latestBucket.HeartRate)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.RespiratoryRate, "RR")} {FormatOrDash(latestBucket.RespiratoryRate)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.Spo2, "SpO2")} {FormatOrDash(latestBucket.Spo2)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.Etco2, "ETCO2")} {FormatOrDash(latestBucket.Etco2)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.Temperature, "Temp")} {FormatOrDash(latestBucket.Temperature)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.Map, "MAP")} {FormatOrDash(latestBucket.Map)}");
             summary.AppendLine(
-                $"Gas settings: ISO {FormatOrDash(latestBucket.IsoPercent)}, O2 flow {FormatOrDash(latestBucket.OxygenFlowRate)}");
+                $"Gas settings: {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.IsoPercent, "ISO")} {FormatOrDash(latestBucket.IsoPercent)}, {fieldMap.GetValueOrDefault(Constants.AnesthesiaFieldKeys.OxygenFlowRate, "O2")} {FormatOrDash(latestBucket.OxygenFlowRate)}");
         }
         else
         {

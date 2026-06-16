@@ -19,8 +19,11 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await _db.CreateTableAsync<AnesthesiaBucket>();
         await _db.CreateTableAsync<ClinicSettings>();
         await _db.CreateTableAsync<VoiceEntryLog>();
+        await _db.CreateTableAsync<WorkflowTemplate>();
+        await _db.CreateTableAsync<SessionTelemetryEvent>();
         await EnsureClinicSettingsColumnsAsync();
         await EnsureVoiceLogColumnsAsync();
+        await EnsureWorkflowTemplateColumnsAsync();
     }
 
     private SQLiteAsyncConnection Db =>
@@ -96,6 +99,29 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
             await Db.UpdateAsync(settings);
     }
 
+    public async Task<List<WorkflowTemplate>> GetWorkflowTemplatesAsync() =>
+        await Db.Table<WorkflowTemplate>()
+            .OrderBy(x => x.Name)
+            .ToListAsync();
+
+    public async Task<WorkflowTemplate?> GetWorkflowTemplateAsync(Guid templateId) =>
+        await Db.Table<WorkflowTemplate>()
+            .Where(x => x.Id == templateId)
+            .FirstOrDefaultAsync();
+
+    public async Task SaveWorkflowTemplateAsync(WorkflowTemplate template)
+    {
+        var existing = await GetWorkflowTemplateAsync(template.Id);
+
+        if (existing is null)
+            await Db.InsertAsync(template);
+        else
+            await Db.UpdateAsync(template);
+    }
+
+    public Task DeleteWorkflowTemplateAsync(Guid templateId) =>
+        Db.DeleteAsync<WorkflowTemplate>(templateId);
+
     public async Task<List<AnesthesiaBucket>> GetBucketsAsync(Guid sessionId)
         => await Db.Table<AnesthesiaBucket>()
             .Where(x => x.SessionId == sessionId)
@@ -138,6 +164,24 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
             await Db.UpdateAsync(log);
     }
 
+    public async Task<List<SessionTelemetryEvent>> GetSessionTelemetryEventsAsync(Guid sessionId) =>
+        await Db.Table<SessionTelemetryEvent>()
+            .Where(x => x.SessionId == sessionId)
+            .OrderBy(x => x.OccurredAt)
+            .ToListAsync();
+
+    public async Task SaveSessionTelemetryEventAsync(SessionTelemetryEvent telemetryEvent)
+    {
+        var existing = await Db.Table<SessionTelemetryEvent>()
+            .Where(x => x.Id == telemetryEvent.Id)
+            .FirstOrDefaultAsync();
+
+        if (existing is null)
+            await Db.InsertAsync(telemetryEvent);
+        else
+            await Db.UpdateAsync(telemetryEvent);
+    }
+
     public async Task<List<AnesthesiaSession>> GetSessionsByAnimalAsync(Guid animalId)
     => await Db.Table<AnesthesiaSession>()
         .Where(x => x.AnimalId == animalId)
@@ -168,6 +212,14 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PdfAttachmentInstruction), "TEXT NOT NULL DEFAULT 'Attach the exported anesthesia PDF record to the patient chart.'");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvExportLabel), "TEXT NOT NULL DEFAULT 'Bucket CSV'");
         await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.CsvShareTitle), "TEXT NOT NULL DEFAULT 'Share bucket CSV'");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ChartFieldLabelsJson), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ChartFieldOrderCsv), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.RequiredCompletionFieldKeysCsv), "TEXT NOT NULL DEFAULT 'HeartRate,RespiratoryRate,Spo2,Etco2,Temperature,Map'");
+    }
+
+    private async Task EnsureWorkflowTemplateColumnsAsync()
+    {
+        await EnsureColumnAsync(nameof(WorkflowTemplate), nameof(WorkflowTemplate.PreferredExportTargetKey), "TEXT NOT NULL DEFAULT 'ClinicChartNote'");
     }
 
     private async Task EnsureColumnAsync(string tableName, string columnName, string columnDefinition)

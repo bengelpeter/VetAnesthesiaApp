@@ -5,9 +5,17 @@ namespace VetAnesthesiaApp.Tests;
 
 public class SessionWorkflowTests
 {
-    private readonly SessionCompletionEvaluator _completionEvaluator = new();
-    private readonly SessionHandoffSummaryService _handoffSummaryService = new();
-    private readonly SessionStructuredExportService _structuredExportService = new();
+    private readonly IChartConfigurationService _chartConfigurationService = new ChartConfigurationService();
+    private readonly SessionCompletionEvaluator _completionEvaluator;
+    private readonly SessionHandoffSummaryService _handoffSummaryService;
+    private readonly SessionStructuredExportService _structuredExportService;
+
+    public SessionWorkflowTests()
+    {
+        _completionEvaluator = new SessionCompletionEvaluator(_chartConfigurationService);
+        _handoffSummaryService = new SessionHandoffSummaryService(_chartConfigurationService);
+        _structuredExportService = new SessionStructuredExportService(_chartConfigurationService);
+    }
 
     [Fact]
     public void Evaluate_ReturnsReadyForHandoff_WhenCoreChecksAreSatisfied()
@@ -192,7 +200,7 @@ public class SessionWorkflowTests
     }
 
     [Fact]
-    public void BuildBucketCsv_ReturnsStructuredRowsForEachBucket()
+    public void BuildBucketCsv_UsesConfiguredLabelsAndOrder()
     {
         var animal = new Animal { Name = "Ember", Species = "Canine" };
         var session = new AnesthesiaSession
@@ -209,18 +217,26 @@ public class SessionWorkflowTests
                 BucketStartTime = new DateTime(2026, 6, 15, 9, 5, 0),
                 BucketEndTime = new DateTime(2026, 6, 15, 9, 10, 0),
                 HeartRate = 95,
+                Map = 71,
                 RespiratoryRate = 16,
                 Spo2 = 98,
                 Notes = "stable"
             }
         };
+        var settings = new ClinicSettings
+        {
+            ChartFieldLabelsJson = "{\"Map\":\"Mean BP\",\"HeartRate\":\"Pulse\"}",
+            ChartFieldOrderCsv = "Map,HeartRate,Spo2"
+        };
 
-        var csv = _structuredExportService.BuildBucketCsv(animal, session, buckets);
+        var csv = _structuredExportService.BuildBucketCsv(animal, session, settings, buckets);
 
-        Assert.Contains("SessionId,PatientName,Species,Procedure", csv);
+        Assert.Contains("\"SessionId\",\"PatientName\",\"Species\",\"Procedure\"", csv);
+        Assert.Contains("\"Mean BP\",\"Pulse\",\"SpO2\"", csv);
         Assert.Contains("\"11111111-1111-1111-1111-111111111111\"", csv);
         Assert.Contains("\"Ember\"", csv);
         Assert.Contains("\"Dental\"", csv);
+        Assert.Contains("\"71\",\"95\",\"98\"", csv);
         Assert.Contains("\"stable\"", csv);
     }
 

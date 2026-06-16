@@ -48,9 +48,12 @@ namespace VetAnesthesiaApp
             builder.Services.AddScoped<IFileShareService, FileShareService>();
             builder.Services.AddScoped<IPdfSessionExportCoordinator, PdfSessionExportCoordinator>();
             builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
+            builder.Services.AddScoped<IChartConfigurationService, ChartConfigurationService>();
             builder.Services.AddScoped<ISessionCompletionEvaluator, SessionCompletionEvaluator>();
             builder.Services.AddScoped<ISessionHandoffSummaryService, SessionHandoffSummaryService>();
             builder.Services.AddScoped<ISessionStructuredExportService, SessionStructuredExportService>();
+            builder.Services.AddScoped<IWorkflowTemplateService, WorkflowTemplateService>();
+            builder.Services.AddScoped<IWorkflowTelemetryService, WorkflowTelemetryService>();
             builder.Services.AddScoped<IClipboardService, ClipboardService>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 

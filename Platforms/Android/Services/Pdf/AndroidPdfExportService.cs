@@ -1,6 +1,7 @@
 using Android.Graphics.Pdf;
 using VetAnesthesiaApp.Models;
 using VetAnesthesiaApp.Services.Data;
+using VetAnesthesiaApp.Services.Workflow;
 using AndroidCanvas = Android.Graphics.Canvas;
 using AndroidColor = Android.Graphics.Color;
 using AndroidPaint = Android.Graphics.Paint;
@@ -20,10 +21,12 @@ public class AndroidPdfExportService : IPdfExportService
     private const int BucketsPerPage = 8;
 
     private readonly IAnesthesiaRepository _repository;
+    private readonly IChartConfigurationService _chartConfigurationService;
 
-    public AndroidPdfExportService(IAnesthesiaRepository repository)
+    public AndroidPdfExportService(IAnesthesiaRepository repository, IChartConfigurationService chartConfigurationService)
     {
         _repository = repository;
+        _chartConfigurationService = chartConfigurationService;
     }
 
     public async Task<string> ExportSessionPdfAsync(Guid sessionId)
@@ -51,7 +54,9 @@ public class AndroidPdfExportService : IPdfExportService
             .Select(x => $"{x.BucketStartTime:hh:mm tt}  {x.Notes}")
             .ToList();
 
-        var fields = BuildFieldRows();
+        var fields = _chartConfigurationService.GetConfiguredFields(settings)
+            .Select(field => (field.Label, Selector: new Func<AnesthesiaBucket, string>(bucket => FormatFieldValue(field.ValueSelector(bucket), field.IsWholeNumber))))
+            .ToList();
 
         Directory.CreateDirectory(FileSystem.CacheDirectory);
 
@@ -92,21 +97,6 @@ public class AndroidPdfExportService : IPdfExportService
 
         return filePath;
     }
-
-    private static List<(string Label, Func<AnesthesiaBucket, string> Selector)> BuildFieldRows() =>
-        new()
-        {
-            ("ISO", b => FormatDecimal(b.IsoPercent)),
-            ("O2", b => FormatDecimal(b.OxygenFlowRate)),
-            ("ETCO2", b => FormatDecimal(b.Etco2)),
-            ("SpO2", b => b.Spo2?.ToString() ?? "-"),
-            ("Temp", b => FormatDecimal(b.Temperature)),
-            ("HR", b => b.HeartRate?.ToString() ?? "-"),
-            ("RR", b => b.RespiratoryRate?.ToString() ?? "-"),
-            ("SYS", b => b.SystolicBp?.ToString() ?? "-"),
-            ("DIA", b => b.DiastolicBp?.ToString() ?? "-"),
-            ("MAP", b => b.Map?.ToString() ?? "-")
-        };
 
     private static void DrawBucketPage(
         AndroidCanvas canvas,
@@ -300,6 +290,16 @@ public class AndroidPdfExportService : IPdfExportService
         return value.Value % 1 == 0
             ? value.Value.ToString("0")
             : value.Value.ToString("0.##");
+    }
+
+    private static string FormatFieldValue(decimal? value, bool isWholeNumber)
+    {
+        if (!value.HasValue)
+            return "-";
+
+        return isWholeNumber
+            ? ((int)value.Value).ToString()
+            : FormatDecimal(value);
     }
 
     private static string DisplayText(string? value) =>

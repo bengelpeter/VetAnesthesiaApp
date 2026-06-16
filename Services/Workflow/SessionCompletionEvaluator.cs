@@ -4,6 +4,13 @@ namespace VetAnesthesiaApp.Services.Workflow;
 
 public class SessionCompletionEvaluator : ISessionCompletionEvaluator
 {
+    private readonly IChartConfigurationService _chartConfigurationService;
+
+    public SessionCompletionEvaluator(IChartConfigurationService chartConfigurationService)
+    {
+        _chartConfigurationService = chartConfigurationService;
+    }
+
     public SessionCompletionSummary Evaluate(
         AnesthesiaSession? session,
         IReadOnlyList<AnesthesiaBucket> buckets,
@@ -32,7 +39,12 @@ public class SessionCompletionEvaluator : ISessionCompletionEvaluator
             hasBuckets ? $"{buckets.Count} monitoring bucket(s) recorded." : "No anesthesia buckets have been recorded yet."));
 
         var latestBucket = hasBuckets ? buckets[^1] : null;
-        var missingFields = latestBucket is null ? new List<string>() : GetMissingLatestVitals(latestBucket);
+        var missingFields = latestBucket is null
+            ? new List<string>()
+            : GetMissingLatestVitals(
+                latestBucket,
+                _chartConfigurationService.GetConfiguredFields(settings),
+                _chartConfigurationService.GetRequiredCompletionFieldKeys(settings));
         items.Add(new SessionCompletionItem(
             "latest-vitals",
             "Latest bucket vitals",
@@ -86,23 +98,15 @@ public class SessionCompletionEvaluator : ISessionCompletionEvaluator
         return new SessionCompletionSummary(items);
     }
 
-    private static List<string> GetMissingLatestVitals(AnesthesiaBucket bucket)
+    private static List<string> GetMissingLatestVitals(
+        AnesthesiaBucket bucket,
+        IReadOnlyList<ChartFieldDefinition> fields,
+        IReadOnlyCollection<string> requiredFieldKeys)
     {
-        var missing = new List<string>();
-
-        if (!bucket.HeartRate.HasValue)
-            missing.Add("HR");
-        if (!bucket.RespiratoryRate.HasValue)
-            missing.Add("RR");
-        if (!bucket.Spo2.HasValue)
-            missing.Add("SpO2");
-        if (!bucket.Etco2.HasValue)
-            missing.Add("ETCO2");
-        if (!bucket.Temperature.HasValue)
-            missing.Add("Temp");
-        if (!bucket.Map.HasValue && !(bucket.SystolicBp.HasValue && bucket.DiastolicBp.HasValue))
-            missing.Add("BP/MAP");
-
-        return missing;
+        return fields
+            .Where(x => requiredFieldKeys.Contains(x.Key))
+            .Where(x => !x.ValueSelector(bucket).HasValue)
+            .Select(x => x.Label)
+            .ToList();
     }
 }

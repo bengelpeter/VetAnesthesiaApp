@@ -2,6 +2,7 @@
 @implements IAsyncDisposable
 
 @using MudBlazor
+@using System.Text.Json
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
 @using VetAnesthesiaApp.Services.Alerts
@@ -26,6 +27,9 @@
 @inject ISessionHandoffSummaryService SessionHandoffSummaryService
 @inject ISessionStructuredExportService SessionStructuredExportService
 @inject IClipboardService ClipboardService
+@inject IChartConfigurationService ChartConfigurationService
+@inject IWorkflowTemplateService WorkflowTemplateService
+@inject IWorkflowTelemetryService WorkflowTelemetryService
 
 <PageTitle>Session Chart</PageTitle>
 
@@ -336,6 +340,120 @@
         </MudPaper>
 
         <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Workflow Templates</MudText>
+
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudTextField T="string"
+                                  Label="Template Name"
+                                  Value="@_newTemplateName"
+                                  ValueChanged="@(value => _newTemplateName = value)"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField T="string"
+                                  Label="Template Description"
+                                  Value="@_newTemplateDescription"
+                                  ValueChanged="@(value => _newTemplateDescription = value)"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" md="2" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@string.IsNullOrWhiteSpace(_newTemplateName)"
+                               OnClick="SaveCurrentWorkflowTemplate">
+                        Save Current Template
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            @if (_workflowTemplates.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                    No clinic workflow templates saved yet.
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="_workflowTemplates" Dense="true" Hover="true" Bordered="true" Class="mt-3">
+                    <HeaderContent>
+                        <MudTh>Name</MudTh>
+                        <MudTh>Description</MudTh>
+                        <MudTh>Export Target</MudTh>
+                        <MudTh>Actions</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                        <MudTd DataLabel="Description">@(string.IsNullOrWhiteSpace(context.Description) ? "-" : context.Description)</MudTd>
+                        <MudTd DataLabel="Export Target">@GetTemplateExportTargetLabel(context)</MudTd>
+                        <MudTd DataLabel="Actions">
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       OnClick="@(async () => await ApplyWorkflowTemplate(context.Id))">
+                                Apply
+                            </MudButton>
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Error"
+                                       OnClick="@(async () => await DeleteWorkflowTemplate(context.Id))">
+                                Delete
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Chart Labels And Completion Rules</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Rename chart labels, change row order, and decide which vitals must be present before the case is considered handoff-ready.
+            </MudText>
+
+            <MudTable Items="_configuredFields" Dense="true" Hover="true" Bordered="true">
+                <HeaderContent>
+                    <MudTh>Order</MudTh>
+                    <MudTh>Field Key</MudTh>
+                    <MudTh>Clinic Label</MudTh>
+                    <MudTh>Required</MudTh>
+                    <MudTh>Move</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Order">@GetFieldPosition(context.Key)</MudTd>
+                    <MudTd DataLabel="Field Key">@context.Key</MudTd>
+                    <MudTd DataLabel="Clinic Label">
+                        <MudTextField T="string"
+                                      Value="@context.Label"
+                                      ValueChanged="@(async value => await UpdateChartFieldLabel(context.Key, value))"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" />
+                    </MudTd>
+                    <MudTd DataLabel="Required">
+                        <MudCheckBox T="bool"
+                                     Value="@IsFieldRequired(context.Key)"
+                                     ValueChanged="@(async value => await UpdateRequiredField(context.Key, value))"
+                                     Color="Color.Primary" />
+                    </MudTd>
+                    <MudTd DataLabel="Move">
+                        <MudButton Variant="Variant.Text"
+                                   Disabled="@IsFirstField(context.Key)"
+                                   OnClick="@(async () => await MoveField(context.Key, -1))">
+                            Up
+                        </MudButton>
+                        <MudButton Variant="Variant.Text"
+                                   Disabled="@IsLastField(context.Key)"
+                                   OnClick="@(async () => await MoveField(context.Key, 1))">
+                            Down
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
             <MudText Typo="Typo.h6" Class="mb-2">Safety Alerts</MudText>
 
             @if (_alerts.Count == 0)
@@ -410,6 +528,37 @@
                 <MudItem xs="12" sm="6" md="3">
                     <MudText Typo="Typo.caption">Status</MudText>
                     <MudText Typo="Typo.body1">@_debugStatus</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-2">Workflow Telemetry</MudText>
+
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Voice Attempts</MudText>
+                    <MudText Typo="Typo.h6">@_telemetrySummary.VoiceAttempts</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Failed Voice</MudText>
+                    <MudText Typo="Typo.h6">@_telemetrySummary.FailedVoiceAttempts</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Undo Usage</MudText>
+                    <MudText Typo="Typo.h6">@_telemetrySummary.UndoUsage</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Manual Corrections</MudText>
+                    <MudText Typo="Typo.h6">@_telemetrySummary.ManualCorrections</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Completion Changes</MudText>
+                    <MudText Typo="Typo.h6">@_telemetrySummary.CompletionEvents</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="2">
+                    <MudText Typo="Typo.caption">Time To Completion</MudText>
+                    <MudText Typo="Typo.h6">@GetTimeToCompletionText()</MudText>
                 </MudItem>
             </MudGrid>
         </MudPaper>
@@ -525,165 +674,25 @@
                         </thead>
 
                         <tbody>
-                            <tr>
-                                <td class="sticky-col field-col">ISO</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="decimal?"
-                                                         Value="@bucket.IsoPercent"
-                                                         ValueChanged="@(async v => await UpdateIso(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">O2</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="decimal?"
-                                                         Value="@bucket.OxygenFlowRate"
-                                                         ValueChanged="@(async v => await UpdateO2(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">ETCO2</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="decimal?"
-                                                         Value="@bucket.Etco2"
-                                                         ValueChanged="@(async v => await UpdateEtco2(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">SpO2</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.Spo2"
-                                                         ValueChanged="@(async v => await UpdateSpo2(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">Temp</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="decimal?"
-                                                         Value="@bucket.Temperature"
-                                                         ValueChanged="@(async v => await UpdateTemperature(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">HR</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.HeartRate"
-                                                         ValueChanged="@(async v => await UpdateHeartRate(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">RR</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.RespiratoryRate"
-                                                         ValueChanged="@(async v => await UpdateRespiratoryRate(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">SYS</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.SystolicBp"
-                                                         ValueChanged="@(async v => await UpdateSystolic(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">DIA</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.DiastolicBp"
-                                                         ValueChanged="@(async v => await UpdateDiastolic(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
-
-                            <tr>
-                                <td class="sticky-col field-col">MAP</td>
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        <MudNumericField T="int?"
-                                                         Value="@bucket.Map"
-                                                         ValueChanged="@(async v => await UpdateMap(bucket, v))"
-                                                         Immediate="true"
-                                                         Variant="Variant.Outlined"
-                                                         Margin="Margin.Dense"
-                                                         HideSpinButtons="true" />
-                                    </td>
-                                }
-                            </tr>
+                            @foreach (var field in _configuredFields)
+                            {
+                                <tr>
+                                    <td class="sticky-col field-col">@field.Label</td>
+                                    @foreach (var bucket in _buckets)
+                                    {
+                                        <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                            <MudNumericField T="decimal?"
+                                                             Value="@field.ValueSelector(bucket)"
+                                                             ValueChanged="@(async value => await UpdateConfiguredField(bucket, field.Key, value))"
+                                                             Immediate="true"
+                                                             Variant="Variant.Outlined"
+                                                             Margin="Margin.Dense"
+                                                             HideSpinButtons="true"
+                                                             Step="@(field.IsWholeNumber ? 1m : 0.1m)" />
+                                        </td>
+                                    }
+                                </tr>
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -776,7 +785,10 @@
     private List<VoiceEntryLog> _recentVoiceLogs = new();
     private List<AnesthesiaBucket> _noteEntries = new();
     private List<SessionAlert> _alerts = new();
+    private List<ChartFieldDefinition> _configuredFields = new();
+    private List<WorkflowTemplate> _workflowTemplates = new();
     private SessionCompletionSummary _completionSummary = new(Array.Empty<SessionCompletionItem>());
+    private SessionTelemetrySummary _telemetrySummary = new();
     private ClinicSettings _clinicSettings = new();
     private bool _isLoading = true;
     private bool _isListening;
@@ -789,6 +801,8 @@
     private string _debugValueText = "-";
     private string _debugNumeric = "-";
     private string _debugStatus = "-";
+    private string _newTemplateName = string.Empty;
+    private string _newTemplateDescription = string.Empty;
     private SpeechStatusLevel _voiceStatusLevel = SpeechStatusLevel.Info;
 
     private IReadOnlyList<ClinicExportTargetOption> AvailableExportTargets => ClinicExportTargets.BuildOptions(_clinicSettings);
@@ -839,7 +853,10 @@
             _activeBucket = null;
             _recentVoiceLogs = new();
             _noteEntries = new();
+            _configuredFields = new();
+            _workflowTemplates = new();
             _completionSummary = new SessionCompletionSummary(Array.Empty<SessionCompletionItem>());
+            _telemetrySummary = new SessionTelemetrySummary();
             _handoffSummary = string.Empty;
             _isLoading = false;
             await InvokeAsync(StateHasChanged);
@@ -848,6 +865,8 @@
 
         _animal = await Repository.GetAnimalAsync(_session.AnimalId);
         _clinicSettings = await Repository.GetClinicSettingsAsync();
+        _configuredFields = ChartConfigurationService.GetConfiguredFields(_clinicSettings).ToList();
+        _workflowTemplates = await WorkflowTemplateService.GetTemplatesAsync();
         _buckets = await Repository.GetBucketsAsync(SessionId);
         _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
         _recentVoiceLogs = (await Repository.GetVoiceLogsAsync(SessionId))
@@ -860,6 +879,7 @@
         _alerts = AlertEvaluator.Evaluate(_buckets, _clinicSettings, DateTime.Now);
         _completionSummary = SessionCompletionEvaluator.Evaluate(_session, _buckets, _clinicSettings, _recentVoiceLogs, DateTime.Now);
         _handoffSummary = SessionHandoffSummaryService.Build(_animal, _session, _clinicSettings, _buckets, _alerts, _completionSummary);
+        _telemetrySummary = await WorkflowTelemetryService.BuildSummaryAsync(_session);
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
@@ -1198,7 +1218,7 @@
         if (_session is null)
             return;
 
-        var filePath = await SessionStructuredExportService.ExportBucketCsvAsync(_animal, _session, _buckets);
+        var filePath = await SessionStructuredExportService.ExportBucketCsvAsync(_animal, _session, _clinicSettings, _buckets);
         var shareTitle = string.IsNullOrWhiteSpace(_clinicSettings.CsvShareTitle)
             ? $"Share {GetCsvLabel()}"
             : _clinicSettings.CsvShareTitle.Trim();
@@ -1211,8 +1231,10 @@
         if (_session is null)
             return;
 
-        _session.SessionEndTime = _session.SessionEndTime is null ? DateTime.Now : null;
+        var isCompleting = _session.SessionEndTime is null;
+        _session.SessionEndTime = isCompleting ? DateTime.Now : null;
         await Repository.SaveSessionAsync(_session);
+        await WorkflowTelemetryService.RecordSessionCompletionChangeAsync(_session.Id, isCompleting);
         Snackbar.Add(
             _session.SessionEndTime is null ? "Procedure reopened." : "Procedure marked complete.",
             Severity.Success);
@@ -1223,10 +1245,23 @@
     {
         try
         {
+            var previousValue = _buckets.FirstOrDefault(x => x.Id == bucketId) is { } existingBucket
+                ? GetBucketFieldValue(existingBucket, fieldKey)
+                : null;
+
             if (value.HasValue)
                 await BucketService.ApplyFieldValueAsync(bucketId, fieldKey, value.Value);
             else
                 await BucketService.ClearFieldAsync(bucketId, fieldKey);
+
+            if (previousValue != value)
+            {
+                await WorkflowTelemetryService.RecordManualCorrectionAsync(
+                    SessionId,
+                    bucketId,
+                    fieldKey,
+                    $"{FormatTelemetryValue(previousValue)} -> {FormatTelemetryValue(value)}");
+            }
 
             await RefreshActiveBucket();
         }
@@ -1330,4 +1365,149 @@
         string.IsNullOrWhiteSpace(_clinicSettings.CsvExportLabel)
             ? "Bucket CSV"
             : _clinicSettings.CsvExportLabel.Trim();
+
+    private async Task UpdateConfiguredField(AnesthesiaBucket bucket, string fieldKey, decimal? value) =>
+        await SaveFieldValueAsync(bucket.Id, fieldKey, value);
+
+    private async Task SaveCurrentWorkflowTemplate()
+    {
+        try
+        {
+            await WorkflowTemplateService.SaveTemplateFromSettingsAsync(_newTemplateName, _newTemplateDescription, _clinicSettings);
+            _newTemplateName = string.Empty;
+            _newTemplateDescription = string.Empty;
+            await LoadAsync();
+            Snackbar.Add("Workflow template saved.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task ApplyWorkflowTemplate(Guid templateId)
+    {
+        var template = _workflowTemplates.FirstOrDefault(x => x.Id == templateId);
+        if (template is null)
+        {
+            Snackbar.Add("Workflow template not found.", Severity.Warning);
+            return;
+        }
+
+        WorkflowTemplateService.ApplyTemplateToSettings(template, _clinicSettings);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task DeleteWorkflowTemplate(Guid templateId)
+    {
+        await WorkflowTemplateService.DeleteTemplateAsync(templateId);
+        await LoadAsync();
+        Snackbar.Add("Workflow template deleted.", Severity.Success);
+    }
+
+    private async Task UpdateChartFieldLabel(string fieldKey, string? value)
+    {
+        var labels = ChartConfigurationService.GetLabelMap(_clinicSettings);
+        var normalizedValue = string.IsNullOrWhiteSpace(value)
+            ? GetDefaultFieldLabel(fieldKey)
+            : value.Trim();
+        labels[fieldKey] = normalizedValue;
+        _clinicSettings.ChartFieldLabelsJson = JsonSerializer.Serialize(labels);
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdateRequiredField(string fieldKey, bool isRequired)
+    {
+        var requiredKeys = new HashSet<string>(
+            ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (isRequired)
+            requiredKeys.Add(fieldKey);
+        else
+            requiredKeys.Remove(fieldKey);
+
+        _clinicSettings.RequiredCompletionFieldKeysCsv = string.Join(",",
+            _configuredFields
+                .Select(x => x.Key)
+                .Where(requiredKeys.Contains));
+
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task MoveField(string fieldKey, int direction)
+    {
+        var orderedKeys = _configuredFields.Select(x => x.Key).ToList();
+        var index = orderedKeys.FindIndex(x => string.Equals(x, fieldKey, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return;
+
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= orderedKeys.Count)
+            return;
+
+        (orderedKeys[index], orderedKeys[newIndex]) = (orderedKeys[newIndex], orderedKeys[index]);
+        _clinicSettings.ChartFieldOrderCsv = string.Join(",", orderedKeys);
+        await SaveClinicSettingsAsync();
+    }
+
+    private bool IsFieldRequired(string fieldKey) =>
+        ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings)
+            .Contains(fieldKey, StringComparer.OrdinalIgnoreCase);
+
+    private bool IsFirstField(string fieldKey) =>
+        _configuredFields.Count == 0 || string.Equals(_configuredFields[0].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsLastField(string fieldKey) =>
+        _configuredFields.Count == 0 || string.Equals(_configuredFields[^1].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
+
+    private int GetFieldPosition(string fieldKey)
+    {
+        var index = _configuredFields.FindIndex(x => string.Equals(x.Key, fieldKey, StringComparison.OrdinalIgnoreCase));
+        return index < 0 ? 0 : index + 1;
+    }
+
+    private string GetDefaultFieldLabel(string fieldKey) =>
+        ChartConfigurationService.GetLabelMap(new ClinicSettings()).GetValueOrDefault(fieldKey, fieldKey);
+
+    private static decimal? GetBucketFieldValue(AnesthesiaBucket bucket, string fieldKey) =>
+        fieldKey switch
+        {
+            AnesthesiaFieldKeys.IsoPercent => bucket.IsoPercent,
+            AnesthesiaFieldKeys.OxygenFlowRate => bucket.OxygenFlowRate,
+            AnesthesiaFieldKeys.Etco2 => bucket.Etco2,
+            AnesthesiaFieldKeys.Spo2 => bucket.Spo2,
+            AnesthesiaFieldKeys.Temperature => bucket.Temperature,
+            AnesthesiaFieldKeys.HeartRate => bucket.HeartRate,
+            AnesthesiaFieldKeys.RespiratoryRate => bucket.RespiratoryRate,
+            AnesthesiaFieldKeys.SystolicBp => bucket.SystolicBp,
+            AnesthesiaFieldKeys.DiastolicBp => bucket.DiastolicBp,
+            AnesthesiaFieldKeys.Map => bucket.Map,
+            _ => null
+        };
+
+    private static string FormatTelemetryValue(decimal? value) =>
+        value.HasValue ? value.Value.ToString("0.##") : "cleared";
+
+    private string GetTimeToCompletionText() =>
+        _telemetrySummary.TimeToCompletion.HasValue
+            ? $"{Math.Round(_telemetrySummary.TimeToCompletion.Value.TotalMinutes, 1):0.#} min"
+            : "Open";
+
+    private static string GetTemplateExportTargetLabel(WorkflowTemplate template)
+    {
+        var settings = new ClinicSettings
+        {
+            PreferredExportTargetKey = template.PreferredExportTargetKey,
+            ClinicChartExportLabel = template.ClinicChartExportLabel,
+            ClinicChartExportNoteTitle = template.ClinicChartExportNoteTitle,
+            ClinicChartExportDescription = template.ClinicChartExportDescription,
+            PdfAttachmentExportLabel = template.PdfAttachmentExportLabel,
+            PdfAttachmentExportNoteTitle = template.PdfAttachmentExportNoteTitle,
+            PdfAttachmentExportDescription = template.PdfAttachmentExportDescription,
+            PdfAttachmentInstruction = template.PdfAttachmentInstruction
+        };
+
+        return ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey).Label;
+    }
 }
