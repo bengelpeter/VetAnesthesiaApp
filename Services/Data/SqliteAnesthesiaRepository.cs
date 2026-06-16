@@ -19,6 +19,7 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await _db.CreateTableAsync<AnesthesiaBucket>();
         await _db.CreateTableAsync<ClinicSettings>();
         await _db.CreateTableAsync<VoiceEntryLog>();
+        await EnsureClinicSettingsColumnsAsync();
         await EnsureVoiceLogColumnsAsync();
     }
 
@@ -151,6 +152,12 @@ public class SqliteAnesthesiaRepository : IAnesthesiaRepository
         await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.PreviousBucketEndTime), "TEXT");
         await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.Undone), "INTEGER NOT NULL DEFAULT 0");
         await EnsureColumnAsync(nameof(VoiceEntryLog), nameof(VoiceEntryLog.UndoneAt), "TEXT");
+    }
+
+    private async Task EnsureClinicSettingsColumnsAsync()
+    {
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.ClinicName), "TEXT NOT NULL DEFAULT ''");
+        await EnsureColumnAsync(nameof(ClinicSettings), nameof(ClinicSettings.PreferredExportTargetKey), "TEXT NOT NULL DEFAULT 'ClinicChartNote'");
     }
 
     private async Task EnsureColumnAsync(string tableName, string columnName, string columnDefinition)

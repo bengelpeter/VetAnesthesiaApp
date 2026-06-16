@@ -21,8 +21,10 @@
 @inject ISnackbar Snackbar
 @inject IVoiceParserService Parser
 @inject IPdfSessionExportCoordinator PdfSessionExportCoordinator
+@inject IFileShareService FileShareService
 @inject ISessionCompletionEvaluator SessionCompletionEvaluator
 @inject ISessionHandoffSummaryService SessionHandoffSummaryService
+@inject ISessionStructuredExportService SessionStructuredExportService
 @inject IClipboardService ClipboardService
 
 <PageTitle>Session Chart</PageTitle>
@@ -90,7 +92,13 @@
                 <MudButton OnClick="CopyHandoffSummary"
                            Variant="Variant.Outlined"
                            Color="Color.Secondary">
-                    Copy Handoff Summary
+                    Copy Export Note
+                </MudButton>
+
+                <MudButton OnClick="ShareBucketCsv"
+                           Variant="Variant.Outlined"
+                           Color="Color.Secondary">
+                    Share Bucket CSV
                 </MudButton>
 
                 <MudButton OnClick="ToggleSessionComplete"
@@ -157,6 +165,34 @@
             <MudText Typo="Typo.h6" Class="mb-2">VetPulse V2 Settings</MudText>
 
             <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudText Typo="Typo.caption">Clinic Name</MudText>
+                    <MudTextField T="string"
+                                  Value="@_clinicSettings.ClinicName"
+                                  ValueChanged="UpdateClinicName"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="string"
+                               Label="Primary Export Target"
+                               Value="@_clinicSettings.PreferredExportTargetKey"
+                               ValueChanged="UpdatePreferredExportTarget"
+                               Variant="Variant.Outlined"
+                               Margin="Margin.Dense">
+                        @foreach (var target in ClinicExportTargets.All)
+                        {
+                            <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="6">
+                    <MudText Typo="Typo.caption">Export Workflow</MudText>
+                    <MudText Typo="Typo.body2">@SelectedExportTarget.Description</MudText>
+                </MudItem>
+
                 <MudItem xs="12" sm="6" md="3">
                     <MudNumericField T="int"
                                      Label="Monitoring Interval (min)"
@@ -311,17 +347,23 @@
 
         <MudPaper Class="pa-4 mb-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudText Typo="Typo.h6">Handoff Summary</MudText>
+                <MudText Typo="Typo.h6">@SelectedExportTarget.Label</MudText>
                 <MudSpacer />
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Secondary"
                            OnClick="CopyHandoffSummary">
-                    Copy Summary
+                    Copy Note
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           OnClick="ShareBucketCsv">
+                    Share CSV
                 </MudButton>
             </MudStack>
 
             <MudText Typo="Typo.body2" Class="mb-2">
-                Paste this summary into the clinic chart or current software after the case is complete.
+                @SelectedExportTarget.Description
             </MudText>
 
             <MudTextField T="string"
@@ -659,6 +701,8 @@
     private string _debugStatus = "-";
     private SpeechStatusLevel _voiceStatusLevel = SpeechStatusLevel.Info;
 
+    private ClinicExportTargetOption SelectedExportTarget => ClinicExportTargets.Resolve(_clinicSettings.PreferredExportTargetKey);
+
     protected override async Task OnInitializedAsync()
     {
         await Repository.InitializeAsync();
@@ -723,7 +767,7 @@
             .ToList();
         _alerts = AlertEvaluator.Evaluate(_buckets, _clinicSettings, DateTime.Now);
         _completionSummary = SessionCompletionEvaluator.Evaluate(_session, _buckets, _clinicSettings, _recentVoiceLogs, DateTime.Now);
-        _handoffSummary = SessionHandoffSummaryService.Build(_animal, _session, _buckets, _alerts, _completionSummary);
+        _handoffSummary = SessionHandoffSummaryService.Build(_animal, _session, _clinicSettings, _buckets, _alerts, _completionSummary);
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
@@ -963,6 +1007,18 @@
         await SaveClinicSettingsAsync();
     }
 
+    private async Task UpdateClinicName(string value)
+    {
+        _clinicSettings.ClinicName = value;
+        await SaveClinicSettingsAsync();
+    }
+
+    private async Task UpdatePreferredExportTarget(string value)
+    {
+        _clinicSettings.PreferredExportTargetKey = value;
+        await SaveClinicSettingsAsync();
+    }
+
     private async Task UndoLastVoiceEntry()
     {
         try
@@ -982,7 +1038,17 @@
     private async Task CopyHandoffSummary()
     {
         await ClipboardService.SetTextAsync(_handoffSummary);
-        Snackbar.Add("Handoff summary copied.", Severity.Success);
+        Snackbar.Add($"{SelectedExportTarget.Label} copied.", Severity.Success);
+    }
+
+    private async Task ShareBucketCsv()
+    {
+        if (_session is null)
+            return;
+
+        var filePath = await SessionStructuredExportService.ExportBucketCsvAsync(_animal, _session, _buckets);
+        await FileShareService.ShareFileAsync(filePath, "Share bucket CSV");
+        Snackbar.Add("Bucket CSV ready to share.", Severity.Success);
     }
 
     private async Task ToggleSessionComplete()

@@ -8,6 +8,7 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
     public string Build(
         Animal? animal,
         AnesthesiaSession session,
+        ClinicSettings settings,
         IReadOnlyList<AnesthesiaBucket> buckets,
         IReadOnlyList<SessionAlert> alerts,
         SessionCompletionSummary completionSummary)
@@ -18,13 +19,28 @@ public class SessionHandoffSummaryService : ISessionHandoffSummaryService
             .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
             .TakeLast(3)
             .ToList();
+        var exportTarget = ClinicExportTargets.Resolve(settings.PreferredExportTargetKey);
 
-        summary.AppendLine("VetPulse anesthesia handoff");
+        summary.AppendLine(exportTarget.Key == ClinicExportTargets.PdfAttachmentNote
+            ? "VetPulse PDF attachment note"
+            : "VetPulse clinic chart note");
+        summary.AppendLine($"Target workflow: {exportTarget.Label}");
+
+        if (!string.IsNullOrWhiteSpace(settings.ClinicName))
+        {
+            summary.AppendLine($"Clinic: {settings.ClinicName.Trim()}");
+        }
+
         summary.AppendLine($"Patient: {animal?.Name ?? "Unknown"} ({animal?.Species ?? "Unknown species"})");
         summary.AppendLine($"Procedure: {FormatOrNotRecorded(session.Procedure)}");
         summary.AppendLine($"Start: {session.SessionStartTime:yyyy-MM-dd hh:mm tt}");
         summary.AppendLine($"End: {(session.SessionEndTime.HasValue ? session.SessionEndTime.Value.ToString("yyyy-MM-dd hh:mm tt") : "In progress")}");
         summary.AppendLine($"Monitoring buckets: {buckets.Count}");
+
+        if (exportTarget.Key == ClinicExportTargets.PdfAttachmentNote)
+        {
+            summary.AppendLine("Primary record: Attach the VetPulse PDF anesthesia record to the patient chart.");
+        }
 
         if (latestBucket is not null)
         {

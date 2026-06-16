@@ -25,6 +25,7 @@ public class PdfExportService : IPdfExportService
         var animal = await _repository.GetAnimalAsync(session.AnimalId)
             ?? throw new InvalidOperationException("Animal not found.");
 
+        var settings = await _repository.GetClinicSettingsAsync();
         var buckets = await _repository.GetBucketsAsync(sessionId);
         var noteEntries = buckets
             .Where(x => !string.IsNullOrWhiteSpace(x.Notes))
@@ -59,6 +60,10 @@ public class PdfExportService : IPdfExportService
                 {
                     column.Spacing(4);
                     column.Item().Text("Vet Anesthesia Record").FontSize(18).Bold();
+                    if (!string.IsNullOrWhiteSpace(settings.ClinicName))
+                    {
+                        column.Item().Text($"Clinic: {settings.ClinicName.Trim()}");
+                    }
                     column.Item().Text(
                         $"Animal: {animal.Name}    Owner: {animal.OwnerName ?? "-"}    Species: {animal.Species}");
                     column.Item().Text(

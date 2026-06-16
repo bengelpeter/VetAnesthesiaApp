@@ -50,6 +50,7 @@ namespace VetAnesthesiaApp
             builder.Services.AddScoped<ISessionAlertEvaluator, SessionAlertEvaluator>();
             builder.Services.AddScoped<ISessionCompletionEvaluator, SessionCompletionEvaluator>();
             builder.Services.AddScoped<ISessionHandoffSummaryService, SessionHandoffSummaryService>();
+            builder.Services.AddScoped<ISessionStructuredExportService, SessionStructuredExportService>();
             builder.Services.AddScoped<IClipboardService, ClipboardService>();
             builder.Services.AddSingleton<ITextToNumberParser, SpokenNumberParser>();
 

@@ -36,6 +36,7 @@ public class AndroidPdfExportService : IPdfExportService
         var animal = await _repository.GetAnimalAsync(session.AnimalId)
             ?? throw new InvalidOperationException("Animal not found.");
 
+        var settings = await _repository.GetClinicSettingsAsync();
         var buckets = (await _repository.GetBucketsAsync(sessionId))
             .OrderBy(x => x.BucketStartTime)
             .ToList();
@@ -69,7 +70,7 @@ public class AndroidPdfExportService : IPdfExportService
         {
             using var page = document.StartPage(new PdfDocument.PageInfo.Builder(PageWidth, PageHeight, pageNumber).Create())
                 ?? throw new InvalidOperationException("Android PDF page creation failed.");
-            DrawBucketPage(page.Canvas!, animal, session, bucketPage, fields, pageNumber, bucketPages.Count);
+            DrawBucketPage(page.Canvas!, animal, session, settings.ClinicName, bucketPage, fields, pageNumber, bucketPages.Count);
             document.FinishPage(page);
             pageNumber++;
         }
@@ -80,7 +81,7 @@ public class AndroidPdfExportService : IPdfExportService
             {
                 using var page = document.StartPage(new PdfDocument.PageInfo.Builder(PageWidth, PageHeight, pageNumber).Create())
                     ?? throw new InvalidOperationException("Android PDF notes page creation failed.");
-                DrawNotesPage(page.Canvas!, animal, session, notePage, pageNumber);
+                DrawNotesPage(page.Canvas!, animal, session, settings.ClinicName, notePage, pageNumber);
                 document.FinishPage(page);
                 pageNumber++;
             }
@@ -111,6 +112,7 @@ public class AndroidPdfExportService : IPdfExportService
         AndroidCanvas canvas,
         Animal animal,
         AnesthesiaSession session,
+        string? clinicName,
         IReadOnlyList<AnesthesiaBucket> buckets,
         IReadOnlyList<(string Label, Func<AnesthesiaBucket, string> Selector)> fields,
         int pageNumber,
@@ -154,6 +156,12 @@ public class AndroidPdfExportService : IPdfExportService
 
         canvas.DrawText("Vet Anesthesia Record", Margin, y, titlePaint);
         y += 32;
+
+        if (!string.IsNullOrWhiteSpace(clinicName))
+        {
+            canvas.DrawText($"Clinic: {clinicName.Trim()}", Margin, y, bodyPaint);
+            y += 24;
+        }
 
         canvas.DrawText($"Animal: {animal.Name}", Margin, y, bodyPaint);
         canvas.DrawText($"Species: {DisplayText(animal.Species)}", Margin + 310, y, bodyPaint);
@@ -214,6 +222,7 @@ public class AndroidPdfExportService : IPdfExportService
         AndroidCanvas canvas,
         Animal animal,
         AnesthesiaSession session,
+        string? clinicName,
         IReadOnlyList<string> notes,
         int pageNumber)
     {
@@ -237,6 +246,13 @@ public class AndroidPdfExportService : IPdfExportService
         var y = Margin;
         canvas.DrawText("Vet Anesthesia Record", Margin, y, titlePaint);
         y += 32;
+
+        if (!string.IsNullOrWhiteSpace(clinicName))
+        {
+            canvas.DrawText($"Clinic: {clinicName.Trim()}", Margin, y, bodyPaint);
+            y += 24;
+        }
+
         canvas.DrawText($"Animal: {animal.Name}", Margin, y, bodyPaint);
         canvas.DrawText($"Procedure: {DisplayText(session.Procedure)}", Margin + 320, y, bodyPaint);
         canvas.DrawText($"Page {pageNumber}", Margin + 850, y, bodyPaint);

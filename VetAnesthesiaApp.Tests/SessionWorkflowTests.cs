@@ -7,6 +7,7 @@ public class SessionWorkflowTests
 {
     private readonly SessionCompletionEvaluator _completionEvaluator = new();
     private readonly SessionHandoffSummaryService _handoffSummaryService = new();
+    private readonly SessionStructuredExportService _structuredExportService = new();
 
     [Fact]
     public void Evaluate_ReturnsReadyForHandoff_WhenCoreChecksAreSatisfied()
@@ -116,13 +117,103 @@ public class SessionWorkflowTests
             Array.Empty<VoiceEntryLog>(),
             new DateTime(2026, 6, 15, 9, 49, 0));
 
-        var summary = _handoffSummaryService.Build(animal, session, buckets, alerts, completion);
+        var summary = _handoffSummaryService.Build(
+            animal,
+            session,
+            new ClinicSettings
+            {
+                ClinicName = "Main Street Vet",
+                PreferredExportTargetKey = ClinicExportTargets.ClinicChartNote
+            },
+            buckets,
+            alerts,
+            completion);
 
-        Assert.Contains("VetPulse anesthesia handoff", summary);
+        Assert.Contains("VetPulse clinic chart note", summary);
+        Assert.Contains("Clinic: Main Street Vet", summary);
         Assert.Contains("Patient: Ember (Canine)", summary);
         Assert.Contains("Procedure: Dental", summary);
         Assert.Contains("Active alerts:", summary);
         Assert.Contains("MAP has remained below the clinic threshold.", summary);
         Assert.Contains("Open checks:", summary);
+    }
+
+    [Fact]
+    public void Build_UsesPdfAttachmentNoteFormat_WhenTargetRequestsPdfWorkflow()
+    {
+        var animal = new Animal { Name = "Milo", Species = "Feline" };
+        var session = new AnesthesiaSession
+        {
+            Procedure = "Mass removal",
+            SessionStartTime = new DateTime(2026, 6, 15, 10, 0, 0),
+            SessionEndTime = new DateTime(2026, 6, 15, 10, 40, 0)
+        };
+        var buckets = new[]
+        {
+            new AnesthesiaBucket
+            {
+                BucketStartTime = new DateTime(2026, 6, 15, 10, 35, 0),
+                HeartRate = 102,
+                RespiratoryRate = 18,
+                Spo2 = 99,
+                Etco2 = 35,
+                Temperature = 100.1m,
+                Map = 74
+            }
+        };
+        var completion = _completionEvaluator.Evaluate(
+            session,
+            buckets,
+            new ClinicSettings(),
+            Array.Empty<VoiceEntryLog>(),
+            new DateTime(2026, 6, 15, 10, 39, 0));
+
+        var summary = _handoffSummaryService.Build(
+            animal,
+            session,
+            new ClinicSettings
+            {
+                PreferredExportTargetKey = ClinicExportTargets.PdfAttachmentNote
+            },
+            buckets,
+            Array.Empty<SessionAlert>(),
+            completion);
+
+        Assert.Contains("VetPulse PDF attachment note", summary);
+        Assert.Contains("Primary record: Attach the VetPulse PDF anesthesia record", summary);
+        Assert.Contains("Target workflow: PDF attachment note", summary);
+    }
+
+    [Fact]
+    public void BuildBucketCsv_ReturnsStructuredRowsForEachBucket()
+    {
+        var animal = new Animal { Name = "Ember", Species = "Canine" };
+        var session = new AnesthesiaSession
+        {
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Procedure = "Dental",
+            SessionStartTime = new DateTime(2026, 6, 15, 9, 0, 0),
+            SessionEndTime = new DateTime(2026, 6, 15, 9, 45, 0)
+        };
+        var buckets = new[]
+        {
+            new AnesthesiaBucket
+            {
+                BucketStartTime = new DateTime(2026, 6, 15, 9, 5, 0),
+                BucketEndTime = new DateTime(2026, 6, 15, 9, 10, 0),
+                HeartRate = 95,
+                RespiratoryRate = 16,
+                Spo2 = 98,
+                Notes = "stable"
+            }
+        };
+
+        var csv = _structuredExportService.BuildBucketCsv(animal, session, buckets);
+
+        Assert.Contains("SessionId,PatientName,Species,Procedure", csv);
+        Assert.Contains("\"11111111-1111-1111-1111-111111111111\"", csv);
+        Assert.Contains("\"Ember\"", csv);
+        Assert.Contains("\"Dental\"", csv);
+        Assert.Contains("\"stable\"", csv);
     }
 }

@@ -13,4 +13,6 @@ public class ClinicSettings
     public int MapLowThreshold { get; set; } = 60;
     public decimal TemperatureDropAlertDelta { get; set; } = 1.0m;
     public bool EnableAlerts { get; set; } = true;
+    public string ClinicName { get; set; } = "";
+    public string PreferredExportTargetKey { get; set; } = "ClinicChartNote";
 }
