@@ -2,7 +2,6 @@
 @implements IAsyncDisposable
 
 @using MudBlazor
-@using System.Text.Json
 @using VetAnesthesiaApp.Components
 @using VetAnesthesiaApp.Models
 @using VetAnesthesiaApp.Services.Alerts
@@ -28,7 +27,6 @@
 @inject ISessionStructuredExportService SessionStructuredExportService
 @inject IClipboardService ClipboardService
 @inject IChartConfigurationService ChartConfigurationService
-@inject IWorkflowTemplateService WorkflowTemplateService
 @inject IWorkflowTelemetryService WorkflowTelemetryService
 
 <PageTitle>Session Chart</PageTitle>
@@ -56,765 +54,361 @@
     }
     else
     {
-        <MudPaper Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudText Typo="Typo.h5">@(_animal?.Name ?? "Unknown Animal")</MudText>
-                <MudSpacer />
+        <MudPaper Class="pa-5 mb-4 case-hero">
+            <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;" Spacing="2">
+                <div>
+                    <MudText Typo="Typo.h4">@(_animal?.Name ?? "Unknown Animal")</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mt-2" Style="flex-wrap:wrap;">
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Default">
+                            @(_animal?.Species ?? "Species not set")
+                        </MudChip>
+                        @if (!string.IsNullOrWhiteSpace(_animal?.OwnerName))
+                        {
+                            <MudChip T="string" Variant="Variant.Outlined" Color="Color.Default">
+                                Owner: @_animal!.OwnerName
+                            </MudChip>
+                        }
+                        <MudChip T="string"
+                                 Variant="Variant.Filled"
+                                 Color="@(_session.SessionEndTime is null ? Color.Info : Color.Success)">
+                            @(_session.SessionEndTime is null ? "Case in progress" : "Procedure complete")
+                        </MudChip>
+                    </MudStack>
+                </div>
 
-                <MudButton Variant="Variant.Outlined"
-                           OnClick="BackToAnimal">
-                    Back
-                </MudButton>
-
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           OnClick="StartNewBucketNow">
-                    New Time Bucket
-                </MudButton>
-
-                <MudButton Variant="Variant.Filled"
-                           Color="@(_isListening ? Color.Error : Color.Success)"
-                           OnClick="ToggleListening">
-                    @(_isListening ? "Stop Listening" : "Start Listening")
-                </MudButton>
-
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Warning"
-                           Disabled="@(!CanUndoLastVoiceEntry)"
-                           OnClick="UndoLastVoiceEntry">
-                    Undo Last Voice Entry
-                </MudButton>
+                <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
+                    <MudButton Variant="Variant.Outlined" OnClick="BackToAnimal">
+                        Back
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="GoToWorkflowSetup">
+                        Workflow Setup
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartNewBucketNow">
+                        New Time Bucket
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="@(_isListening ? Color.Error : Color.Success)"
+                               OnClick="ToggleListening">
+                        @(_isListening ? "Stop Listening" : "Start Listening")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Warning"
+                               Disabled="@(!CanUndoLastVoiceEntry)"
+                               OnClick="UndoLastVoiceEntry">
+                        Undo
+                    </MudButton>
+                </MudStack>
             </MudStack>
 
-            <MudStack Row="true" Spacing="2" Class="mt-3" Style="flex-wrap:wrap;">
-                <MudButton OnClick="ExportPdf"
-                           Variant="Variant.Filled"
-                           Color="Color.Primary">
-                    Export PDF
-                </MudButton>
-
-                <MudButton OnClick="CopyHandoffSummary"
-                           Variant="Variant.Outlined"
-                           Color="Color.Secondary">
-                    Copy @SelectedExportTarget.Label
-                </MudButton>
-
-                <MudButton OnClick="ShareBucketCsv"
-                           Variant="Variant.Outlined"
-                           Color="Color.Secondary">
-                    Share @GetCsvLabel()
-                </MudButton>
-
-                <MudButton OnClick="ToggleSessionComplete"
-                           Variant="Variant.Outlined"
-                           Color="@(_session.SessionEndTime is null ? Color.Info : Color.Default)">
-                    @(_session.SessionEndTime is null ? "Mark Procedure Complete" : "Reopen Procedure")
-                </MudButton>
-            </MudStack>
-
-            <MudDivider Class="my-3" />
-
-            <MudAlert Severity="@MapSpeechSeverity(_voiceStatusLevel)" Dense="true" Variant="Variant.Filled">
-                @_voiceStatus
-            </MudAlert>
-
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-                If a voice entry is wrong, use <b>Undo Last Voice Entry</b> or tap the chart cell to correct it immediately.
-            </MudAlert>
-
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Procedure</MudText>
-                    <MudTextField T="string"
-                                  Value="@_session.Procedure"
-                                  ValueChanged="UpdateProcedure"
-                                  Immediate="true"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
+            <MudGrid Spacing="2" Class="mt-4">
+                <MudItem xs="12" md="4">
+                    <MudPaper Class="pa-3 case-stat">
+                        <MudText Typo="Typo.caption">Procedure</MudText>
+                        <MudTextField T="string"
+                                      Value="@_session.Procedure"
+                                      ValueChanged="UpdateProcedure"
+                                      Immediate="true"
+                                      Placeholder="Enter procedure"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" />
+                    </MudPaper>
                 </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Active Bucket</MudText>
-                    <MudText Typo="Typo.body1">
-                        @(_activeBucket?.BucketStartTime.ToString("hh:mm tt") ?? "None")
-                    </MudText>
+                <MudItem xs="6" md="2">
+                    <MudPaper Class="pa-3 case-stat">
+                        <MudText Typo="Typo.caption">Active Bucket</MudText>
+                        <MudText Typo="Typo.h6">@(_activeBucket?.BucketStartTime.ToString("hh:mm tt") ?? "None")</MudText>
+                    </MudPaper>
                 </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Listening</MudText>
-                    <MudChip T="string"
-                             Color="@(_isListening ? Color.Success : Color.Default)"
-                             Variant="Variant.Filled">
-                        @(_isListening ? "Listening" : "Off")
-                    </MudChip>
+                <MudItem xs="6" md="2">
+                    <MudPaper Class="pa-3 case-stat">
+                        <MudText Typo="Typo.caption">Listening</MudText>
+                        <MudChip T="string"
+                                 Color="@(_isListening ? Color.Success : Color.Default)"
+                                 Variant="Variant.Filled"
+                                 Size="Size.Small">
+                            @(_isListening ? "Live" : "Off")
+                        </MudChip>
+                    </MudPaper>
                 </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Voice Outcome</MudText>
-                    <MudChip T="string"
-                             Color="@MapSpeechChipColor(_voiceStatusLevel)"
-                             Variant="Variant.Filled">
-                        @DescribeVoiceState(_voiceStatusLevel)
-                    </MudChip>
+                <MudItem xs="6" md="2">
+                    <MudPaper Class="pa-3 case-stat">
+                        <MudText Typo="Typo.caption">Voice Status</MudText>
+                        <MudChip T="string"
+                                 Color="@MapSpeechChipColor(_voiceStatusLevel)"
+                                 Variant="Variant.Filled"
+                                 Size="Size.Small">
+                            @DescribeVoiceState(_voiceStatusLevel)
+                        </MudChip>
+                    </MudPaper>
                 </MudItem>
-
-                <MudItem xs="12" sm="6" md="6">
+                <MudItem xs="6" md="2">
+                    <MudPaper Class="pa-3 case-stat">
+                        <MudText Typo="Typo.caption">Buckets</MudText>
+                        <MudText Typo="Typo.h6">@_buckets.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudAlert Severity="@MapSpeechSeverity(_voiceStatusLevel)" Dense="true" Variant="Variant.Filled">
+                        @_voiceStatus
+                    </MudAlert>
+                </MudItem>
+                <MudItem xs="12">
                     <MudText Typo="Typo.caption">Last Heard</MudText>
                     <MudText Typo="Typo.body2">@_lastSpeech</MudText>
                 </MudItem>
             </MudGrid>
         </MudPaper>
 
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">VetPulse V2 Settings</MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="8">
+                <MudPaper Class="pa-4 mb-4 chart-shell">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                        <div>
+                            <MudText Typo="Typo.h5">Live Anesthesia Chart</MudText>
+                            <MudText Typo="Typo.body2">
+                                Enter values by voice or tap directly into the active bucket.
+                            </MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudButton OnClick="ToggleSessionComplete"
+                                   Variant="Variant.Outlined"
+                                   Color="@(_session.SessionEndTime is null ? Color.Info : Color.Default)">
+                            @(_session.SessionEndTime is null ? "Mark Procedure Complete" : "Reopen Procedure")
+                        </MudButton>
+                    </MudStack>
 
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Clinic Name</MudText>
-                    <MudTextField T="string"
-                                  Value="@_clinicSettings.ClinicName"
-                                  ValueChanged="UpdateClinicName"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudSelect T="string"
-                               Label="Primary Export Target"
-                               Value="@_clinicSettings.PreferredExportTargetKey"
-                               ValueChanged="UpdatePreferredExportTarget"
-                               Variant="Variant.Outlined"
-                               Margin="Margin.Dense">
-                        @foreach (var target in AvailableExportTargets)
-                        {
-                            <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="6">
-                    <MudText Typo="Typo.caption">Export Workflow</MudText>
-                    <MudText Typo="Typo.body2">@SelectedExportTarget.Description</MudText>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="PDF Title"
-                                  Value="@_clinicSettings.PdfDocumentTitle"
-                                  ValueChanged="UpdatePdfDocumentTitle"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="Chart Note Label"
-                                  Value="@_clinicSettings.ClinicChartExportLabel"
-                                  ValueChanged="UpdateClinicChartExportLabel"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="Chart Note Title"
-                                  Value="@_clinicSettings.ClinicChartExportNoteTitle"
-                                  ValueChanged="UpdateClinicChartExportNoteTitle"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="PDF Note Label"
-                                  Value="@_clinicSettings.PdfAttachmentExportLabel"
-                                  ValueChanged="UpdatePdfAttachmentExportLabel"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="PDF Note Title"
-                                  Value="@_clinicSettings.PdfAttachmentExportNoteTitle"
-                                  ValueChanged="UpdatePdfAttachmentExportNoteTitle"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="CSV Label"
-                                  Value="@_clinicSettings.CsvExportLabel"
-                                  ValueChanged="UpdateCsvExportLabel"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudTextField T="string"
-                                  Label="CSV Share Title"
-                                  Value="@_clinicSettings.CsvShareTitle"
-                                  ValueChanged="UpdateCsvShareTitle"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudTextField T="string"
-                                  Label="Chart Note Description"
-                                  Value="@_clinicSettings.ClinicChartExportDescription"
-                                  ValueChanged="UpdateClinicChartExportDescription"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudTextField T="string"
-                                  Label="PDF Note Description"
-                                  Value="@_clinicSettings.PdfAttachmentExportDescription"
-                                  ValueChanged="UpdatePdfAttachmentExportDescription"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudTextField T="string"
-                                  Label="PDF Attachment Instruction"
-                                  Value="@_clinicSettings.PdfAttachmentInstruction"
-                                  ValueChanged="UpdatePdfAttachmentInstruction"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="4">
-                    <MudTextField T="string"
-                                  Label="Current Clinic Software"
-                                  Value="@_clinicSettings.CurrentSoftwareName"
-                                  ValueChanged="UpdateCurrentSoftwareName"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="4">
-                    <MudTextField T="string"
-                                  Label="Chart Copy Destination"
-                                  Value="@_clinicSettings.ChartCopyDestination"
-                                  ValueChanged="UpdateChartCopyDestination"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="4">
-                    <MudTextField T="string"
-                                  Label="PDF Attachment Destination"
-                                  Value="@_clinicSettings.PdfAttachmentDestination"
-                                  ValueChanged="UpdatePdfAttachmentDestination"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudTextField T="string"
-                                  Label="Preferred Note Wording"
-                                  Value="@_clinicSettings.PreferredNoteWording"
-                                  ValueChanged="UpdatePreferredNoteWording"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Lines="3" />
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudTextField T="string"
-                                  Label="Pilot Workflow Notes"
-                                  Value="@_clinicSettings.PilotWorkflowNotes"
-                                  ValueChanged="UpdatePilotWorkflowNotes"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense"
-                                  Lines="4"
-                                  HelperText="One workflow reminder per line: what gets copied, attached, checked, or corrected." />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="int"
-                                     Label="Monitoring Interval (min)"
-                                     Value="@_clinicSettings.MonitoringIntervalMinutes"
-                                     ValueChanged="UpdateMonitoringInterval"
-                                     Variant="Variant.Outlined"
-                                     Margin="Margin.Dense"
-                                     HideSpinButtons="true" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="int"
-                                     Label="Missing Vitals Alert (min)"
-                                     Value="@_clinicSettings.MissingVitalsAlertAfterMinutes"
-                                     ValueChanged="UpdateMissingVitalsThreshold"
-                                     Variant="Variant.Outlined"
-                                     Margin="Margin.Dense"
-                                     HideSpinButtons="true" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="int"
-                                     Label="Low SpO2 Threshold"
-                                     Value="@_clinicSettings.Spo2LowThreshold"
-                                     ValueChanged="UpdateSpo2Threshold"
-                                     Variant="Variant.Outlined"
-                                     Margin="Margin.Dense"
-                                     HideSpinButtons="true" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="int"
-                                     Label="Low MAP Threshold"
-                                     Value="@_clinicSettings.MapLowThreshold"
-                                     ValueChanged="UpdateMapThreshold"
-                                     Variant="Variant.Outlined"
-                                     Margin="Margin.Dense"
-                                     HideSpinButtons="true" />
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudNumericField T="decimal"
-                                     Label="Temp Drop Alert (F)"
-                                     Value="@_clinicSettings.TemperatureDropAlertDelta"
-                                     ValueChanged="UpdateTemperatureDropThreshold"
-                                     Variant="Variant.Outlined"
-                                     Margin="Margin.Dense"
-                                     HideSpinButtons="true" />
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Android Pilot Workflow Snapshot</MudText>
-            <MudText Typo="Typo.body2" Class="mb-3">
-                Use this with your wife during real procedures so the note text and handoff workflow match what her clinic actually needs.
-            </MudText>
-
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Software</MudText>
-                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.CurrentSoftwareName)</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Copy Destination</MudText>
-                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.ChartCopyDestination)</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">PDF Attachment</MudText>
-                    <MudText Typo="Typo.body1">@DisplayOrDash(_clinicSettings.PdfAttachmentDestination)</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Required Handoff Fields</MudText>
-                    <MudText Typo="Typo.body1">@GetRequiredFieldSummary()</MudText>
-                </MudItem>
-                <MudItem xs="12">
-                    <MudText Typo="Typo.caption">Preferred Wording</MudText>
-                    <MudText Typo="Typo.body2">@DisplayOrDash(_clinicSettings.PreferredNoteWording)</MudText>
-                </MudItem>
-                <MudItem xs="12">
-                    <MudText Typo="Typo.caption">Workflow Notes</MudText>
-                    @if (GetPilotWorkflowItems().Count == 0)
+                    @if (_buckets.Count == 0)
                     {
-                        <MudText Typo="Typo.body2">-</MudText>
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">
+                            No time buckets yet. Tap <b>New Time Bucket</b> to begin charting.
+                        </MudAlert>
                     }
                     else
                     {
-                        @foreach (var item in GetPilotWorkflowItems())
-                        {
-                            <MudText Typo="Typo.body2">- @item</MudText>
-                        }
-                    }
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
+                        <div class="chart-scroll mt-4">
+                            <table class="session-grid">
+                                <thead>
+                                    <tr>
+                                        <th class="sticky-col field-col">Field</th>
 
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Workflow Templates</MudText>
+                                        @foreach (var bucket in _buckets)
+                                        {
+                                            <th class="time-col @(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                                @bucket.BucketStartTime.ToString("hh:mm tt")
+                                            </th>
+                                        }
+                                    </tr>
+                                </thead>
 
-            <MudGrid>
-                <MudItem xs="12" md="4">
-                    <MudTextField T="string"
-                                  Label="Template Name"
-                                  Value="@_newTemplateName"
-                                  ValueChanged="@(value => _newTemplateName = value)"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    <MudTextField T="string"
-                                  Label="Template Description"
-                                  Value="@_newTemplateDescription"
-                                  ValueChanged="@(value => _newTemplateDescription = value)"
-                                  Variant="Variant.Outlined"
-                                  Margin="Margin.Dense" />
-                </MudItem>
-
-                <MudItem xs="12" md="2" Class="d-flex align-center">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               Disabled="@string.IsNullOrWhiteSpace(_newTemplateName)"
-                               OnClick="SaveCurrentWorkflowTemplate">
-                        Save Current Template
-                    </MudButton>
-                </MudItem>
-            </MudGrid>
-
-            @if (_workflowTemplates.Count == 0)
-            {
-                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-                    No clinic workflow templates saved yet.
-                </MudAlert>
-            }
-            else
-            {
-                <MudTable Items="_workflowTemplates" Dense="true" Hover="true" Bordered="true" Class="mt-3">
-                    <HeaderContent>
-                        <MudTh>Name</MudTh>
-                        <MudTh>Description</MudTh>
-                        <MudTh>Export Target</MudTh>
-                        <MudTh>Actions</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Name">@context.Name</MudTd>
-                        <MudTd DataLabel="Description">@(string.IsNullOrWhiteSpace(context.Description) ? "-" : context.Description)</MudTd>
-                        <MudTd DataLabel="Export Target">@GetTemplateExportTargetLabel(context)</MudTd>
-                        <MudTd DataLabel="Actions">
-                            <MudButton Variant="Variant.Text"
-                                       Color="Color.Primary"
-                                       OnClick="@(async () => await ApplyWorkflowTemplate(context.Id))">
-                                Apply
-                            </MudButton>
-                            <MudButton Variant="Variant.Text"
-                                       Color="Color.Error"
-                                       OnClick="@(async () => await DeleteWorkflowTemplate(context.Id))">
-                                Delete
-                            </MudButton>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            }
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Chart Labels And Completion Rules</MudText>
-            <MudText Typo="Typo.body2" Class="mb-2">
-                Rename chart labels, change row order, and decide which vitals must be present before the case is considered handoff-ready.
-            </MudText>
-
-            <MudTable Items="_configuredFields" Dense="true" Hover="true" Bordered="true">
-                <HeaderContent>
-                    <MudTh>Order</MudTh>
-                    <MudTh>Field Key</MudTh>
-                    <MudTh>Clinic Label</MudTh>
-                    <MudTh>Required</MudTh>
-                    <MudTh>Move</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd DataLabel="Order">@GetFieldPosition(context.Key)</MudTd>
-                    <MudTd DataLabel="Field Key">@context.Key</MudTd>
-                    <MudTd DataLabel="Clinic Label">
-                        <MudTextField T="string"
-                                      Value="@context.Label"
-                                      ValueChanged="@(async value => await UpdateChartFieldLabel(context.Key, value))"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense" />
-                    </MudTd>
-                    <MudTd DataLabel="Required">
-                        <MudCheckBox T="bool"
-                                     Value="@IsFieldRequired(context.Key)"
-                                     ValueChanged="@(async value => await UpdateRequiredField(context.Key, value))"
-                                     Color="Color.Primary" />
-                    </MudTd>
-                    <MudTd DataLabel="Move">
-                        <MudButton Variant="Variant.Text"
-                                   Disabled="@IsFirstField(context.Key)"
-                                   OnClick="@(async () => await MoveField(context.Key, -1))">
-                            Up
-                        </MudButton>
-                        <MudButton Variant="Variant.Text"
-                                   Disabled="@IsLastField(context.Key)"
-                                   OnClick="@(async () => await MoveField(context.Key, 1))">
-                            Down
-                        </MudButton>
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Safety Alerts</MudText>
-
-            @if (_alerts.Count == 0)
-            {
-                <MudAlert Severity="Severity.Success" Dense="true">
-                    No active safety alerts right now.
-                </MudAlert>
-            }
-            else
-            {
-                @foreach (var alert in _alerts)
-                {
-                    <MudAlert Severity="@MapAlertSeverity(alert.Level)" Dense="true" Class="mb-2">
-                        @alert.Message
-                    </MudAlert>
-                }
-            }
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudText Typo="Typo.h6">Completion Checks</MudText>
-                <MudSpacer />
-                <MudChip T="string"
-                         Color="@(_completionSummary.IsReadyForHandoff ? Color.Success : Color.Warning)"
-                         Variant="Variant.Filled">
-                    @(_completionSummary.IsReadyForHandoff ? "Ready for handoff" : "Needs attention")
-                </MudChip>
-            </MudStack>
-
-            <MudGrid Class="mt-2">
-                @foreach (var item in _completionSummary.Items)
-                {
-                    <MudItem xs="12" md="6">
-                        <MudAlert Severity="@MapCompletionSeverity(item)" Dense="true" Class="mb-2">
-                            <b>@item.Label:</b> @item.Message
-                        </MudAlert>
-                    </MudItem>
-                }
-            </MudGrid>
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Voice Debug</MudText>
-
-            <MudGrid>
-                <MudItem xs="12">
-                    <MudText Typo="Typo.caption">Last Heard</MudText>
-                    <MudText Typo="Typo.body1">@_lastSpeech</MudText>
-                </MudItem>
-
-                <MudItem xs="12">
-                    <MudText Typo="Typo.caption">Normalized</MudText>
-                    <MudText Typo="Typo.body1">@_debugNormalized</MudText>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Field</MudText>
-                    <MudText Typo="Typo.body1">@_debugField</MudText>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Value Text</MudText>
-                    <MudText Typo="Typo.body1">@_debugValueText</MudText>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Numeric</MudText>
-                    <MudText Typo="Typo.body1">@_debugNumeric</MudText>
-                </MudItem>
-
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.caption">Status</MudText>
-                    <MudText Typo="Typo.body1">@_debugStatus</MudText>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Workflow Telemetry</MudText>
-
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Voice Attempts</MudText>
-                    <MudText Typo="Typo.h6">@_telemetrySummary.VoiceAttempts</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Failed Voice</MudText>
-                    <MudText Typo="Typo.h6">@_telemetrySummary.FailedVoiceAttempts</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Undo Usage</MudText>
-                    <MudText Typo="Typo.h6">@_telemetrySummary.UndoUsage</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Manual Corrections</MudText>
-                    <MudText Typo="Typo.h6">@_telemetrySummary.ManualCorrections</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Completion Changes</MudText>
-                    <MudText Typo="Typo.h6">@_telemetrySummary.CompletionEvents</MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="2">
-                    <MudText Typo="Typo.caption">Time To Completion</MudText>
-                    <MudText Typo="Typo.h6">@GetTimeToCompletionText()</MudText>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Procedure Notes</MudText>
-
-            @if (_noteEntries.Count == 0)
-            {
-                <MudAlert Severity="Severity.Info" Dense="true">
-                    No bucket notes recorded yet.
-                </MudAlert>
-            }
-            else
-            {
-                @foreach (var note in _noteEntries)
-                {
-                    <MudPaper Class="pa-3 mb-2">
-                        <MudText Typo="Typo.subtitle2">@note.BucketStartTime.ToString("hh:mm tt")</MudText>
-                        <MudText Typo="Typo.body2">@note.Notes</MudText>
-                    </MudPaper>
-                }
-            }
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudText Typo="Typo.h6">@SelectedExportTarget.Label</MudText>
-                <MudSpacer />
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Secondary"
-                           OnClick="CopyHandoffSummary">
-                    Copy @SelectedExportTarget.Label
-                </MudButton>
-
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Secondary"
-                           OnClick="ShareBucketCsv">
-                    Share @GetCsvLabel()
-                </MudButton>
-            </MudStack>
-
-            <MudText Typo="Typo.body2" Class="mb-2">
-                @SelectedExportTarget.Description
-            </MudText>
-
-            <MudTextField T="string"
-                          Value="@_handoffSummary"
-                          ReadOnly="true"
-                          Lines="14"
-                          Variant="Variant.Outlined"
-                          FullWidth="true" />
-        </MudPaper>
-
-        <MudPaper Class="pa-4 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-2">Recent Voice Activity</MudText>
-
-            @if (_recentVoiceLogs.Count == 0)
-            {
-                <MudAlert Severity="Severity.Info" Dense="true">
-                    No voice attempts logged yet.
-                </MudAlert>
-            }
-            else
-            {
-                <MudTable Items="_recentVoiceLogs" Dense="true" Hover="true" Bordered="true" Striped="true">
-                    <HeaderContent>
-                        <MudTh>Time</MudTh>
-                        <MudTh>Transcript</MudTh>
-                        <MudTh>Status</MudTh>
-                        <MudTh>Outcome</MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd DataLabel="Time">@context.SpokenAt.ToString("hh:mm:ss tt")</MudTd>
-                        <MudTd DataLabel="Transcript">@context.RawTranscript</MudTd>
-                        <MudTd DataLabel="Status">@context.StatusMessage</MudTd>
-                        <MudTd DataLabel="Outcome">
-                            <MudChip T="string"
-                                     Color="@MapVoiceLogColor(context)"
-                                     Variant="Variant.Filled">
-                                @DescribeVoiceLogOutcome(context)
-                            </MudChip>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            }
-        </MudPaper>
-
-        <MudPaper Class="pa-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Anesthesia Chart</MudText>
-
-            @if (_buckets.Count == 0)
-            {
-                <MudAlert Severity="Severity.Info" Dense="true">
-                    No time buckets yet. Tap <b>New Time Bucket</b> to begin charting.
-                </MudAlert>
-            }
-            else
-            {
-                <div style="overflow-x:auto;">
-                    <table class="session-grid">
-                        <thead>
-                            <tr>
-                                <th class="sticky-col field-col">Field</th>
-
-                                @foreach (var bucket in _buckets)
-                                {
-                                    <th class="time-col @(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                        @bucket.BucketStartTime.ToString("hh:mm tt")
-                                    </th>
-                                }
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            @foreach (var field in _configuredFields)
-                            {
-                                <tr>
-                                    <td class="sticky-col field-col">@field.Label</td>
-                                    @foreach (var bucket in _buckets)
+                                <tbody>
+                                    @foreach (var field in _configuredFields)
                                     {
-                                        <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
-                                            <MudNumericField T="decimal?"
-                                                             Value="@field.ValueSelector(bucket)"
-                                                             ValueChanged="@(async value => await UpdateConfiguredField(bucket, field.Key, value))"
-                                                             Immediate="true"
-                                                             Variant="Variant.Outlined"
-                                                             Margin="Margin.Dense"
-                                                             HideSpinButtons="true"
-                                                             Step="@(field.IsWholeNumber ? 1m : 0.1m)" />
-                                        </td>
+                                        <tr>
+                                            <td class="sticky-col field-col">@field.Label</td>
+                                            @foreach (var bucket in _buckets)
+                                            {
+                                                <td class="@(bucket.Id == _activeBucket?.Id ? "active-bucket-col" : "")">
+                                                    <MudNumericField T="decimal?"
+                                                                     Value="@field.ValueSelector(bucket)"
+                                                                     ValueChanged="@(async value => await UpdateConfiguredField(bucket, field.Key, value))"
+                                                                     Immediate="true"
+                                                                     Variant="Variant.Outlined"
+                                                                     Margin="Margin.Dense"
+                                                                     HideSpinButtons="true"
+                                                                     Step="@(field.IsWholeNumber ? 1m : 0.1m)" />
+                                                </td>
+                                            }
+                                        </tr>
                                     }
-                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.h6" Class="mb-2">Trend View</MudText>
+                        <AnesthesiaPointGraph Buckets="_buckets"
+                                              ActiveBucketId="_activeBucket?.Id"
+                                              Height="320"
+                                              MinValue="0"
+                                              MaxValue="200"
+                                              YSteps="10" />
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="4">
+                <MudPaper Class="pa-4 mb-4 side-panel">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.h6">Safety Alerts</MudText>
+                        <MudSpacer />
+                        <MudChip T="string"
+                                 Variant="Variant.Filled"
+                                 Color="@(_alerts.Count == 0 ? Color.Success : Color.Warning)"
+                                 Size="Size.Small">
+                            @(_alerts.Count == 0 ? "Stable" : $"{_alerts.Count} active")
+                        </MudChip>
+                    </MudStack>
+
+                    @if (_alerts.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true" Class="mt-3">
+                            No active safety alerts right now.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <div class="mt-3">
+                            @foreach (var alert in _alerts)
+                            {
+                                <MudAlert Severity="@MapAlertSeverity(alert.Level)" Dense="true" Class="mb-2">
+                                    @alert.Message
+                                </MudAlert>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </MudPaper>
+                        </div>
+                    }
+                </MudPaper>
 
-        <MudDivider Class="my-4" />
+                <MudPaper Class="pa-4 mb-4 side-panel">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.h6">Handoff Readiness</MudText>
+                        <MudSpacer />
+                        <MudChip T="string"
+                                 Color="@(_completionSummary.IsReadyForHandoff ? Color.Success : Color.Warning)"
+                                 Variant="Variant.Filled"
+                                 Size="Size.Small">
+                            @(_completionSummary.IsReadyForHandoff ? "Ready" : "Needs review")
+                        </MudChip>
+                    </MudStack>
 
-        <MudText Typo="Typo.h6" Class="mb-3">Vitals Trend</MudText>
+                    <div class="mt-3">
+                        @foreach (var item in _completionSummary.Items)
+                        {
+                            <MudAlert Severity="@MapCompletionSeverity(item)" Dense="true" Class="mb-2">
+                                <b>@item.Label:</b> @item.Message
+                            </MudAlert>
+                        }
+                    </div>
+                </MudPaper>
 
-        @if (_buckets.Count > 0)
-        {
-            <AnesthesiaPointGraph Buckets="_buckets"
-                                  ActiveBucketId="_activeBucket?.Id"
-                                  Height="320"
-                                  MinValue="0"
-                                  MaxValue="200"
-                                  YSteps="10" />
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Info" Dense="true">
-                Add at least one bucket to see the trend chart.
-            </MudAlert>
-        }
+                <MudPaper Class="pa-4 mb-4 side-panel">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                        <MudText Typo="Typo.h6">@SelectedExportTarget.Label</MudText>
+                        <MudSpacer />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportPdf">
+                            Export PDF
+                        </MudButton>
+                    </MudStack>
+
+                    <MudText Typo="Typo.body2" Class="mt-2 mb-3">
+                        @SelectedExportTarget.Description
+                    </MudText>
+
+                    <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;" Class="mb-3">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CopyHandoffSummary">
+                            Copy Note
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ShareBucketCsv">
+                            Share CSV
+                        </MudButton>
+                    </MudStack>
+
+                    <MudTextField T="string"
+                                  Value="@_handoffSummary"
+                                  ReadOnly="true"
+                                  Lines="14"
+                                  Variant="Variant.Outlined"
+                                  FullWidth="true" />
+                </MudPaper>
+
+                <MudExpansionPanels MultiExpansion="true">
+                    <MudExpansionPanel Text="Procedure Notes" Expanded="@(_noteEntries.Count > 0)">
+                        @if (_noteEntries.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                No bucket notes recorded yet.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            @foreach (var note in _noteEntries)
+                            {
+                                <MudPaper Class="pa-3 mb-2 note-card">
+                                    <MudText Typo="Typo.subtitle2">@note.BucketStartTime.ToString("hh:mm tt")</MudText>
+                                    <MudText Typo="Typo.body2">@note.Notes</MudText>
+                                </MudPaper>
+                            }
+                        }
+                    </MudExpansionPanel>
+
+                    <MudExpansionPanel Text="Recent Voice Activity">
+                        @if (_recentVoiceLogs.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                No voice attempts logged yet.
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudTable Items="_recentVoiceLogs" Dense="true" Hover="true" Bordered="true">
+                                <HeaderContent>
+                                    <MudTh>Time</MudTh>
+                                    <MudTh>Status</MudTh>
+                                    <MudTh>Outcome</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Time">@context.SpokenAt.ToString("hh:mm:ss tt")</MudTd>
+                                    <MudTd DataLabel="Status">@context.StatusMessage</MudTd>
+                                    <MudTd DataLabel="Outcome">
+                                        <MudChip T="string"
+                                                 Color="@MapVoiceLogColor(context)"
+                                                 Variant="Variant.Filled"
+                                                 Size="Size.Small">
+                                            @DescribeVoiceLogOutcome(context)
+                                        </MudChip>
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudItem>
+        </MudGrid>
     }
 
 </MudContainer>
 
 <style>
+    .case-hero {
+        background: linear-gradient(135deg, #f7fbff 0%, #ffffff 100%);
+        border: 1px solid #d9e4f0;
+        box-shadow: 0 10px 24px rgba(23, 50, 77, 0.06);
+    }
+
+    .case-stat {
+        height: 100%;
+        border: 1px solid #dfe7f0;
+        background: #fbfdff;
+    }
+
+    .chart-shell,
+    .side-panel {
+        border: 1px solid #dfe7f0;
+        box-shadow: 0 8px 18px rgba(23, 50, 77, 0.04);
+    }
+
+    .chart-scroll {
+        overflow-x: auto;
+        border: 1px solid #dfe7f0;
+        border-radius: 12px;
+        background: #fff;
+    }
+
+    .note-card {
+        border: 1px solid #e1e8f0;
+        background: #fbfdff;
+    }
+
     .session-grid {
         border-collapse: collapse;
         min-width: 1050px;
@@ -863,7 +457,7 @@
     }
 
     .active-bucket-col {
-        background-color: #fff7cc !important;
+        background-color: #eef7ff !important;
     }
 </style>
 
@@ -878,9 +472,7 @@
     private List<AnesthesiaBucket> _noteEntries = new();
     private List<SessionAlert> _alerts = new();
     private List<ChartFieldDefinition> _configuredFields = new();
-    private List<WorkflowTemplate> _workflowTemplates = new();
     private SessionCompletionSummary _completionSummary = new(Array.Empty<SessionCompletionItem>());
-    private SessionTelemetrySummary _telemetrySummary = new();
     private ClinicSettings _clinicSettings = new();
     private bool _isLoading = true;
     private bool _isListening;
@@ -888,13 +480,7 @@
     private string _lastSpeech = "-";
     private string _voiceStatus = "-";
     private string _handoffSummary = "";
-    private string _debugNormalized = "-";
-    private string _debugField = "-";
-    private string _debugValueText = "-";
-    private string _debugNumeric = "-";
     private string _debugStatus = "-";
-    private string _newTemplateName = string.Empty;
-    private string _newTemplateDescription = string.Empty;
     private SpeechStatusLevel _voiceStatusLevel = SpeechStatusLevel.Info;
 
     private IReadOnlyList<ClinicExportTargetOption> AvailableExportTargets => ClinicExportTargets.BuildOptions(_clinicSettings);
@@ -946,9 +532,7 @@
             _recentVoiceLogs = new();
             _noteEntries = new();
             _configuredFields = new();
-            _workflowTemplates = new();
             _completionSummary = new SessionCompletionSummary(Array.Empty<SessionCompletionItem>());
-            _telemetrySummary = new SessionTelemetrySummary();
             _handoffSummary = string.Empty;
             _isLoading = false;
             await InvokeAsync(StateHasChanged);
@@ -958,7 +542,6 @@
         _animal = await Repository.GetAnimalAsync(_session.AnimalId);
         _clinicSettings = await Repository.GetClinicSettingsAsync();
         _configuredFields = ChartConfigurationService.GetConfiguredFields(_clinicSettings).ToList();
-        _workflowTemplates = await WorkflowTemplateService.GetTemplatesAsync();
         _buckets = await Repository.GetBucketsAsync(SessionId);
         _activeBucket = await BucketService.GetActiveBucketAsync(SessionId);
         _recentVoiceLogs = (await Repository.GetVoiceLogsAsync(SessionId))
@@ -971,7 +554,6 @@
         _alerts = AlertEvaluator.Evaluate(_buckets, _clinicSettings, DateTime.Now);
         _completionSummary = SessionCompletionEvaluator.Evaluate(_session, _buckets, _clinicSettings, _recentVoiceLogs, DateTime.Now);
         _handoffSummary = SessionHandoffSummaryService.Build(_animal, _session, _clinicSettings, _buckets, _alerts, _completionSummary);
-        _telemetrySummary = await WorkflowTelemetryService.BuildSummaryAsync(_session);
 
         _isLoading = false;
         await InvokeAsync(StateHasChanged);
@@ -988,6 +570,11 @@
             Nav.NavigateTo($"/animal/{_session.AnimalId}");
         else
             Nav.NavigateTo("/");
+    }
+
+    private void GoToWorkflowSetup()
+    {
+        Nav.NavigateTo("/workflow-setup");
     }
 
     private async Task StartNewBucketNow()
@@ -1035,11 +622,6 @@
         foreach (var command in commands)
         {
             var parseResult = Parser.Parse(command, spokenAt);
-
-            _debugNormalized = parseResult.NormalizedTranscript ?? "-";
-            _debugField = parseResult.FieldKey ?? "-";
-            _debugValueText = parseResult.ParsedValueText ?? "-";
-            _debugNumeric = parseResult.ParsedNumericValue?.ToString() ?? "-";
             _debugStatus = parseResult.StatusMessage ?? "-";
 
             try
@@ -1173,145 +755,6 @@
             VetAlertLevel.Warning => Severity.Warning,
             _ => Severity.Info
         };
-
-    private async Task SaveClinicSettingsAsync()
-    {
-        await Repository.SaveClinicSettingsAsync(_clinicSettings);
-        await LoadAsync();
-        Snackbar.Add("VetPulse settings saved.", Severity.Success);
-    }
-
-    private async Task UpdateMonitoringInterval(int value)
-    {
-        _clinicSettings.MonitoringIntervalMinutes = Math.Max(1, value);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateMissingVitalsThreshold(int value)
-    {
-        _clinicSettings.MissingVitalsAlertAfterMinutes = Math.Max(1, value);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateSpo2Threshold(int value)
-    {
-        _clinicSettings.Spo2LowThreshold = Math.Clamp(value, 1, 100);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateMapThreshold(int value)
-    {
-        _clinicSettings.MapLowThreshold = Math.Max(1, value);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateTemperatureDropThreshold(decimal value)
-    {
-        _clinicSettings.TemperatureDropAlertDelta = value <= 0 ? 0.5m : value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateClinicName(string value)
-    {
-        _clinicSettings.ClinicName = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePreferredExportTarget(string value)
-    {
-        _clinicSettings.PreferredExportTargetKey = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfDocumentTitle(string value)
-    {
-        _clinicSettings.PdfDocumentTitle = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateClinicChartExportLabel(string value)
-    {
-        _clinicSettings.ClinicChartExportLabel = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateClinicChartExportNoteTitle(string value)
-    {
-        _clinicSettings.ClinicChartExportNoteTitle = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateClinicChartExportDescription(string value)
-    {
-        _clinicSettings.ClinicChartExportDescription = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfAttachmentExportLabel(string value)
-    {
-        _clinicSettings.PdfAttachmentExportLabel = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfAttachmentExportNoteTitle(string value)
-    {
-        _clinicSettings.PdfAttachmentExportNoteTitle = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfAttachmentExportDescription(string value)
-    {
-        _clinicSettings.PdfAttachmentExportDescription = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfAttachmentInstruction(string value)
-    {
-        _clinicSettings.PdfAttachmentInstruction = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateCsvExportLabel(string value)
-    {
-        _clinicSettings.CsvExportLabel = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateCsvShareTitle(string value)
-    {
-        _clinicSettings.CsvShareTitle = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateCurrentSoftwareName(string value)
-    {
-        _clinicSettings.CurrentSoftwareName = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateChartCopyDestination(string value)
-    {
-        _clinicSettings.ChartCopyDestination = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePdfAttachmentDestination(string value)
-    {
-        _clinicSettings.PdfAttachmentDestination = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePreferredNoteWording(string value)
-    {
-        _clinicSettings.PreferredNoteWording = value;
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdatePilotWorkflowNotes(string value)
-    {
-        _clinicSettings.PilotWorkflowNotes = value;
-        await SaveClinicSettingsAsync();
-    }
 
     private async Task UndoLastVoiceEntry()
     {
@@ -1491,107 +934,6 @@
     private async Task UpdateConfiguredField(AnesthesiaBucket bucket, string fieldKey, decimal? value) =>
         await SaveFieldValueAsync(bucket.Id, fieldKey, value);
 
-    private async Task SaveCurrentWorkflowTemplate()
-    {
-        try
-        {
-            await WorkflowTemplateService.SaveTemplateFromSettingsAsync(_newTemplateName, _newTemplateDescription, _clinicSettings);
-            _newTemplateName = string.Empty;
-            _newTemplateDescription = string.Empty;
-            await LoadAsync();
-            Snackbar.Add("Workflow template saved.", Severity.Success);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Warning);
-        }
-    }
-
-    private async Task ApplyWorkflowTemplate(Guid templateId)
-    {
-        var template = _workflowTemplates.FirstOrDefault(x => x.Id == templateId);
-        if (template is null)
-        {
-            Snackbar.Add("Workflow template not found.", Severity.Warning);
-            return;
-        }
-
-        WorkflowTemplateService.ApplyTemplateToSettings(template, _clinicSettings);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task DeleteWorkflowTemplate(Guid templateId)
-    {
-        await WorkflowTemplateService.DeleteTemplateAsync(templateId);
-        await LoadAsync();
-        Snackbar.Add("Workflow template deleted.", Severity.Success);
-    }
-
-    private async Task UpdateChartFieldLabel(string fieldKey, string? value)
-    {
-        var labels = ChartConfigurationService.GetLabelMap(_clinicSettings);
-        var normalizedValue = string.IsNullOrWhiteSpace(value)
-            ? GetDefaultFieldLabel(fieldKey)
-            : value.Trim();
-        labels[fieldKey] = normalizedValue;
-        _clinicSettings.ChartFieldLabelsJson = JsonSerializer.Serialize(labels);
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task UpdateRequiredField(string fieldKey, bool isRequired)
-    {
-        var requiredKeys = new HashSet<string>(
-            ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings),
-            StringComparer.OrdinalIgnoreCase);
-
-        if (isRequired)
-            requiredKeys.Add(fieldKey);
-        else
-            requiredKeys.Remove(fieldKey);
-
-        _clinicSettings.RequiredCompletionFieldKeysCsv = string.Join(",",
-            _configuredFields
-                .Select(x => x.Key)
-                .Where(requiredKeys.Contains));
-
-        await SaveClinicSettingsAsync();
-    }
-
-    private async Task MoveField(string fieldKey, int direction)
-    {
-        var orderedKeys = _configuredFields.Select(x => x.Key).ToList();
-        var index = orderedKeys.FindIndex(x => string.Equals(x, fieldKey, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-            return;
-
-        var newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= orderedKeys.Count)
-            return;
-
-        (orderedKeys[index], orderedKeys[newIndex]) = (orderedKeys[newIndex], orderedKeys[index]);
-        _clinicSettings.ChartFieldOrderCsv = string.Join(",", orderedKeys);
-        await SaveClinicSettingsAsync();
-    }
-
-    private bool IsFieldRequired(string fieldKey) =>
-        ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings)
-            .Contains(fieldKey, StringComparer.OrdinalIgnoreCase);
-
-    private bool IsFirstField(string fieldKey) =>
-        _configuredFields.Count == 0 || string.Equals(_configuredFields[0].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
-
-    private bool IsLastField(string fieldKey) =>
-        _configuredFields.Count == 0 || string.Equals(_configuredFields[^1].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
-
-    private int GetFieldPosition(string fieldKey)
-    {
-        var index = _configuredFields.FindIndex(x => string.Equals(x.Key, fieldKey, StringComparison.OrdinalIgnoreCase));
-        return index < 0 ? 0 : index + 1;
-    }
-
-    private string GetDefaultFieldLabel(string fieldKey) =>
-        ChartConfigurationService.GetLabelMap(new ClinicSettings()).GetValueOrDefault(fieldKey, fieldKey);
-
     private static decimal? GetBucketFieldValue(AnesthesiaBucket bucket, string fieldKey) =>
         fieldKey switch
         {
@@ -1610,50 +952,4 @@
 
     private static string FormatTelemetryValue(decimal? value) =>
         value.HasValue ? value.Value.ToString("0.##") : "cleared";
-
-    private string GetTimeToCompletionText() =>
-        _telemetrySummary.TimeToCompletion.HasValue
-            ? $"{Math.Round(_telemetrySummary.TimeToCompletion.Value.TotalMinutes, 1):0.#} min"
-            : "Open";
-
-    private string GetRequiredFieldSummary()
-    {
-        var requiredKeys = ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings);
-        var labels = _configuredFields
-            .Where(x => requiredKeys.Contains(x.Key))
-            .Select(x => x.Label)
-            .ToList();
-
-        return labels.Count == 0 ? "-" : string.Join(", ", labels);
-    }
-
-    private List<string> GetPilotWorkflowItems() =>
-        (_clinicSettings.PilotWorkflowNotes ?? string.Empty)
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-
-    private static string DisplayOrDash(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
-
-    private static string GetTemplateExportTargetLabel(WorkflowTemplate template)
-    {
-        var settings = new ClinicSettings
-        {
-            PreferredExportTargetKey = template.PreferredExportTargetKey,
-            ClinicChartExportLabel = template.ClinicChartExportLabel,
-            ClinicChartExportNoteTitle = template.ClinicChartExportNoteTitle,
-            ClinicChartExportDescription = template.ClinicChartExportDescription,
-            PdfAttachmentExportLabel = template.PdfAttachmentExportLabel,
-            PdfAttachmentExportNoteTitle = template.PdfAttachmentExportNoteTitle,
-            PdfAttachmentExportDescription = template.PdfAttachmentExportDescription,
-            PdfAttachmentInstruction = template.PdfAttachmentInstruction,
-            CurrentSoftwareName = template.CurrentSoftwareName,
-            ChartCopyDestination = template.ChartCopyDestination,
-            PdfAttachmentDestination = template.PdfAttachmentDestination,
-            PreferredNoteWording = template.PreferredNoteWording,
-            PilotWorkflowNotes = template.PilotWorkflowNotes
-        };
-
-        return ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey).Label;
-    }
 }

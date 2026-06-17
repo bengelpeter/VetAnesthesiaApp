@@ -1,5 +1,7 @@
 ﻿@inherits LayoutComponentBase
 
+@inject NavigationManager Nav
+
 <MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
@@ -7,10 +9,20 @@
 
 <MudLayout>
 
-    <MudAppBar Elevation="1" Style="background-color:#5B8DEF; color:white;">
+    <MudAppBar Elevation="0" Dense="true" Style="background-color:#17324d; color:white; border-bottom:1px solid rgba(255,255,255,0.08);">
         <MudText Typo="Typo.h6">
-            🐾 Vet Anesthesia Tracker
+            VetPulse
         </MudText>
+        <MudText Typo="Typo.caption" Class="ml-3" Style="opacity:0.8;">
+            Anesthesia workflow
+        </MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Text" Style="color:white;" OnClick="GoPatients">
+            Patients
+        </MudButton>
+        <MudButton Variant="Variant.Text" Style="color:white;" OnClick="GoWorkflowSetup">
+            Workflow Setup
+        </MudButton>
     </MudAppBar>
 
     <MudMainContent Class="pa-4 mt-16">
@@ -26,17 +38,27 @@
     {
         PaletteLight = new PaletteLight
         {
-            Primary = "#5B8DEF",
-            Secondary = "#8FAADC",
-            Background = "#F7F9FC",
+            Primary = "#4f80d8",
+            Secondary = "#2d8c7a",
+            Background = "#eff3f8",
             Surface = "#FFFFFF",
-            AppbarBackground = "#5B8DEF",
+            AppbarBackground = "#17324d",
             AppbarText = "#FFFFFF",
-            TextPrimary = "#1F2A44"
+            TextPrimary = "#1e2d3d"
         },
         LayoutProperties = new LayoutProperties
         {
-            DefaultBorderRadius = "6px"
+            DefaultBorderRadius = "10px"
         }
     };
+
+    private void GoPatients()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    private void GoWorkflowSetup()
+    {
+        Nav.NavigateTo("/workflow-setup");
+    }
 }

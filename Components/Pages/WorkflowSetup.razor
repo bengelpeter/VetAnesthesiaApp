@@ -1,0 +1,702 @@
+@page "/workflow-setup"
+
+@using System.Text.Json
+@using MudBlazor
+@using VetAnesthesiaApp.Models
+@using VetAnesthesiaApp.Services.Data
+@using VetAnesthesiaApp.Services.Workflow
+
+@inject IAnesthesiaRepository Repository
+@inject IChartConfigurationService ChartConfigurationService
+@inject IWorkflowTemplateService WorkflowTemplateService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<PageTitle>Workflow Setup</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+    @if (_isLoading)
+    {
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6">Loading workflow setup...</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6 mb-4 workflow-hero">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                <div>
+                    <MudText Typo="Typo.h4">Clinic Workflow Setup</MudText>
+                    <MudText Typo="Typo.body1" Class="mt-1">
+                        Configure exports, pilot-clinic workflow details, chart labels, and completion rules outside the live surgery screen.
+                    </MudText>
+                </div>
+
+                <MudSpacer />
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           OnClick="GoHome">
+                    Back To Patients
+                </MudButton>
+            </MudStack>
+
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">
+                Changes save automatically. Use templates when you want to switch between clinic workflows quickly.
+            </MudAlert>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="12" lg="7">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Export Profile</MudText>
+
+                    <MudGrid>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Clinic Name"
+                                          Value="@_clinicSettings.ClinicName"
+                                          ValueChanged="UpdateClinicName"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudSelect T="string"
+                                       Label="Primary Export Target"
+                                       Value="@_clinicSettings.PreferredExportTargetKey"
+                                       ValueChanged="UpdatePreferredExportTarget"
+                                       Variant="Variant.Outlined"
+                                       Margin="Margin.Dense">
+                                @foreach (var target in AvailableExportTargets)
+                                {
+                                    <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudText Typo="Typo.caption">Active Workflow</MudText>
+                            <MudText Typo="Typo.body2">@SelectedExportTarget.Description</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="PDF Title"
+                                          Value="@_clinicSettings.PdfDocumentTitle"
+                                          ValueChanged="UpdatePdfDocumentTitle"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Chart Note Label"
+                                          Value="@_clinicSettings.ClinicChartExportLabel"
+                                          ValueChanged="UpdateClinicChartExportLabel"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Chart Note Title"
+                                          Value="@_clinicSettings.ClinicChartExportNoteTitle"
+                                          ValueChanged="UpdateClinicChartExportNoteTitle"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="PDF Note Label"
+                                          Value="@_clinicSettings.PdfAttachmentExportLabel"
+                                          ValueChanged="UpdatePdfAttachmentExportLabel"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="PDF Note Title"
+                                          Value="@_clinicSettings.PdfAttachmentExportNoteTitle"
+                                          ValueChanged="UpdatePdfAttachmentExportNoteTitle"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="CSV Label"
+                                          Value="@_clinicSettings.CsvExportLabel"
+                                          ValueChanged="UpdateCsvExportLabel"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="CSV Share Title"
+                                          Value="@_clinicSettings.CsvShareTitle"
+                                          ValueChanged="UpdateCsvShareTitle"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          Label="Chart Note Description"
+                                          Value="@_clinicSettings.ClinicChartExportDescription"
+                                          ValueChanged="UpdateClinicChartExportDescription"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Lines="2" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          Label="PDF Note Description"
+                                          Value="@_clinicSettings.PdfAttachmentExportDescription"
+                                          ValueChanged="UpdatePdfAttachmentExportDescription"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Lines="2" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          Label="PDF Attachment Instruction"
+                                          Value="@_clinicSettings.PdfAttachmentInstruction"
+                                          ValueChanged="UpdatePdfAttachmentInstruction"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Pilot Clinic Workflow</MudText>
+
+                    <MudGrid>
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Current Clinic Software"
+                                          Value="@_clinicSettings.CurrentSoftwareName"
+                                          ValueChanged="UpdateCurrentSoftwareName"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="Chart Copy Destination"
+                                          Value="@_clinicSettings.ChartCopyDestination"
+                                          ValueChanged="UpdateChartCopyDestination"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="4">
+                            <MudTextField T="string"
+                                          Label="PDF Attachment Destination"
+                                          Value="@_clinicSettings.PdfAttachmentDestination"
+                                          ValueChanged="UpdatePdfAttachmentDestination"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          Label="Preferred Note Wording"
+                                          Value="@_clinicSettings.PreferredNoteWording"
+                                          ValueChanged="UpdatePreferredNoteWording"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Lines="3" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField T="string"
+                                          Label="Pilot Workflow Notes"
+                                          Value="@_clinicSettings.PilotWorkflowNotes"
+                                          ValueChanged="UpdatePilotWorkflowNotes"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense"
+                                          Lines="4"
+                                          HelperText="One reminder per line: what gets copied, attached, reviewed, or corrected." />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Monitoring Defaults And Completion</MudText>
+
+                    <MudGrid>
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int"
+                                             Label="Monitoring Interval (min)"
+                                             Value="@_clinicSettings.MonitoringIntervalMinutes"
+                                             ValueChanged="UpdateMonitoringInterval"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             HideSpinButtons="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int"
+                                             Label="Missing Vitals Alert (min)"
+                                             Value="@_clinicSettings.MissingVitalsAlertAfterMinutes"
+                                             ValueChanged="UpdateMissingVitalsThreshold"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             HideSpinButtons="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int"
+                                             Label="Low SpO2 Threshold"
+                                             Value="@_clinicSettings.Spo2LowThreshold"
+                                             ValueChanged="UpdateSpo2Threshold"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             HideSpinButtons="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="int"
+                                             Label="Low MAP Threshold"
+                                             Value="@_clinicSettings.MapLowThreshold"
+                                             ValueChanged="UpdateMapThreshold"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             HideSpinButtons="true" />
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudNumericField T="decimal"
+                                             Label="Temp Drop Alert (F)"
+                                             Value="@_clinicSettings.TemperatureDropAlertDelta"
+                                             ValueChanged="UpdateTemperatureDropThreshold"
+                                             Variant="Variant.Outlined"
+                                             Margin="Margin.Dense"
+                                             HideSpinButtons="true" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" lg="5">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Saved Workflow Templates</MudText>
+
+                    <MudGrid>
+                        <MudItem xs="12" md="5">
+                            <MudTextField T="string"
+                                          Label="Template Name"
+                                          Value="@_newTemplateName"
+                                          ValueChanged="@(value => _newTemplateName = value)"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12" md="7">
+                            <MudTextField T="string"
+                                          Label="Template Description"
+                                          Value="@_newTemplateDescription"
+                                          ValueChanged="@(value => _newTemplateDescription = value)"
+                                          Variant="Variant.Outlined"
+                                          Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Disabled="@string.IsNullOrWhiteSpace(_newTemplateName)"
+                                       OnClick="SaveCurrentWorkflowTemplate">
+                                Save Current Configuration
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_workflowTemplates.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                            No workflow templates saved yet.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="_workflowTemplates" Dense="true" Hover="true" Bordered="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Name</MudTh>
+                                <MudTh>Export Target</MudTh>
+                                <MudTh>Actions</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd DataLabel="Name">
+                                    <div>@context.Name</div>
+                                    <MudText Typo="Typo.caption">@(string.IsNullOrWhiteSpace(context.Description) ? "No description" : context.Description)</MudText>
+                                </MudTd>
+                                <MudTd DataLabel="Export Target">@GetTemplateExportTargetLabel(context)</MudTd>
+                                <MudTd DataLabel="Actions">
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Primary"
+                                               OnClick="@(async () => await ApplyWorkflowTemplate(context.Id))">
+                                        Apply
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Text"
+                                               Color="Color.Error"
+                                               OnClick="@(async () => await DeleteWorkflowTemplate(context.Id))">
+                                        Delete
+                                    </MudButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Chart Labels And Completion Rules</MudText>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        These labels drive the live chart, handoff wording, PDF export, and CSV export.
+                    </MudText>
+
+                    <MudTable Items="_configuredFields" Dense="true" Hover="true" Bordered="true">
+                        <HeaderContent>
+                            <MudTh>Order</MudTh>
+                            <MudTh>Field</MudTh>
+                            <MudTh>Clinic Label</MudTh>
+                            <MudTh>Required</MudTh>
+                            <MudTh>Move</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Order">@GetFieldPosition(context.Key)</MudTd>
+                            <MudTd DataLabel="Field">@context.Key</MudTd>
+                            <MudTd DataLabel="Clinic Label">
+                                <MudTextField T="string"
+                                              Value="@context.Label"
+                                              ValueChanged="@(async value => await UpdateChartFieldLabel(context.Key, value))"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" />
+                            </MudTd>
+                            <MudTd DataLabel="Required">
+                                <MudCheckBox T="bool"
+                                             Value="@IsFieldRequired(context.Key)"
+                                             ValueChanged="@(async value => await UpdateRequiredField(context.Key, value))"
+                                             Color="Color.Primary" />
+                            </MudTd>
+                            <MudTd DataLabel="Move">
+                                <MudButton Variant="Variant.Text"
+                                           Disabled="@IsFirstField(context.Key)"
+                                           OnClick="@(async () => await MoveField(context.Key, -1))">
+                                    Up
+                                </MudButton>
+                                <MudButton Variant="Variant.Text"
+                                           Disabled="@IsLastField(context.Key)"
+                                           OnClick="@(async () => await MoveField(context.Key, 1))">
+                                    Down
+                                </MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+<style>
+    .workflow-hero {
+        background: linear-gradient(135deg, #f5f8fc 0%, #ffffff 100%);
+        border: 1px solid #dce6f2;
+    }
+</style>
+
+@code {
+    private ClinicSettings _clinicSettings = new();
+    private List<ChartFieldDefinition> _configuredFields = new();
+    private List<WorkflowTemplate> _workflowTemplates = new();
+    private string _newTemplateName = string.Empty;
+    private string _newTemplateDescription = string.Empty;
+    private bool _isLoading = true;
+
+    private IReadOnlyList<ClinicExportTargetOption> AvailableExportTargets => ClinicExportTargets.BuildOptions(_clinicSettings);
+
+    private ClinicExportTargetOption SelectedExportTarget => ClinicExportTargets.Resolve(_clinicSettings, _clinicSettings.PreferredExportTargetKey);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Repository.InitializeAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _clinicSettings = await Repository.GetClinicSettingsAsync();
+        _configuredFields = ChartConfigurationService.GetConfiguredFields(_clinicSettings).ToList();
+        _workflowTemplates = await WorkflowTemplateService.GetTemplatesAsync();
+        _isLoading = false;
+    }
+
+    private async Task PersistClinicSettingsAsync()
+    {
+        await Repository.SaveClinicSettingsAsync(_clinicSettings);
+        _configuredFields = ChartConfigurationService.GetConfiguredFields(_clinicSettings).ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    private async Task UpdateMonitoringInterval(int value)
+    {
+        _clinicSettings.MonitoringIntervalMinutes = Math.Max(1, value);
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateMissingVitalsThreshold(int value)
+    {
+        _clinicSettings.MissingVitalsAlertAfterMinutes = Math.Max(1, value);
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateSpo2Threshold(int value)
+    {
+        _clinicSettings.Spo2LowThreshold = Math.Clamp(value, 1, 100);
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateMapThreshold(int value)
+    {
+        _clinicSettings.MapLowThreshold = Math.Max(1, value);
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateTemperatureDropThreshold(decimal value)
+    {
+        _clinicSettings.TemperatureDropAlertDelta = value <= 0 ? 0.5m : value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicName(string value)
+    {
+        _clinicSettings.ClinicName = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePreferredExportTarget(string value)
+    {
+        _clinicSettings.PreferredExportTargetKey = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfDocumentTitle(string value)
+    {
+        _clinicSettings.PdfDocumentTitle = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportLabel(string value)
+    {
+        _clinicSettings.ClinicChartExportLabel = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportNoteTitle(string value)
+    {
+        _clinicSettings.ClinicChartExportNoteTitle = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateClinicChartExportDescription(string value)
+    {
+        _clinicSettings.ClinicChartExportDescription = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportLabel(string value)
+    {
+        _clinicSettings.PdfAttachmentExportLabel = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportNoteTitle(string value)
+    {
+        _clinicSettings.PdfAttachmentExportNoteTitle = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentExportDescription(string value)
+    {
+        _clinicSettings.PdfAttachmentExportDescription = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentInstruction(string value)
+    {
+        _clinicSettings.PdfAttachmentInstruction = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateCsvExportLabel(string value)
+    {
+        _clinicSettings.CsvExportLabel = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateCsvShareTitle(string value)
+    {
+        _clinicSettings.CsvShareTitle = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateCurrentSoftwareName(string value)
+    {
+        _clinicSettings.CurrentSoftwareName = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateChartCopyDestination(string value)
+    {
+        _clinicSettings.ChartCopyDestination = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePdfAttachmentDestination(string value)
+    {
+        _clinicSettings.PdfAttachmentDestination = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePreferredNoteWording(string value)
+    {
+        _clinicSettings.PreferredNoteWording = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdatePilotWorkflowNotes(string value)
+    {
+        _clinicSettings.PilotWorkflowNotes = value;
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task SaveCurrentWorkflowTemplate()
+    {
+        try
+        {
+            await WorkflowTemplateService.SaveTemplateFromSettingsAsync(_newTemplateName, _newTemplateDescription, _clinicSettings);
+            _newTemplateName = string.Empty;
+            _newTemplateDescription = string.Empty;
+            _workflowTemplates = await WorkflowTemplateService.GetTemplatesAsync();
+            Snackbar.Add("Workflow template saved.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task ApplyWorkflowTemplate(Guid templateId)
+    {
+        var template = _workflowTemplates.FirstOrDefault(x => x.Id == templateId);
+        if (template is null)
+        {
+            Snackbar.Add("Workflow template not found.", Severity.Warning);
+            return;
+        }
+
+        WorkflowTemplateService.ApplyTemplateToSettings(template, _clinicSettings);
+        await PersistClinicSettingsAsync();
+        Snackbar.Add($"Applied template: {template.Name}.", Severity.Success);
+    }
+
+    private async Task DeleteWorkflowTemplate(Guid templateId)
+    {
+        await WorkflowTemplateService.DeleteTemplateAsync(templateId);
+        _workflowTemplates = await WorkflowTemplateService.GetTemplatesAsync();
+        Snackbar.Add("Workflow template deleted.", Severity.Success);
+    }
+
+    private async Task UpdateChartFieldLabel(string fieldKey, string? value)
+    {
+        var labels = ChartConfigurationService.GetLabelMap(_clinicSettings);
+        labels[fieldKey] = string.IsNullOrWhiteSpace(value)
+            ? GetDefaultFieldLabel(fieldKey)
+            : value.Trim();
+        _clinicSettings.ChartFieldLabelsJson = JsonSerializer.Serialize(labels);
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task UpdateRequiredField(string fieldKey, bool isRequired)
+    {
+        var requiredKeys = new HashSet<string>(
+            ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (isRequired)
+            requiredKeys.Add(fieldKey);
+        else
+            requiredKeys.Remove(fieldKey);
+
+        _clinicSettings.RequiredCompletionFieldKeysCsv = string.Join(",",
+            _configuredFields
+                .Select(x => x.Key)
+                .Where(requiredKeys.Contains));
+
+        await PersistClinicSettingsAsync();
+    }
+
+    private async Task MoveField(string fieldKey, int direction)
+    {
+        var orderedKeys = _configuredFields.Select(x => x.Key).ToList();
+        var index = orderedKeys.FindIndex(x => string.Equals(x, fieldKey, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return;
+
+        var newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= orderedKeys.Count)
+            return;
+
+        (orderedKeys[index], orderedKeys[newIndex]) = (orderedKeys[newIndex], orderedKeys[index]);
+        _clinicSettings.ChartFieldOrderCsv = string.Join(",", orderedKeys);
+        await PersistClinicSettingsAsync();
+    }
+
+    private bool IsFieldRequired(string fieldKey) =>
+        ChartConfigurationService.GetRequiredCompletionFieldKeys(_clinicSettings)
+            .Contains(fieldKey, StringComparer.OrdinalIgnoreCase);
+
+    private bool IsFirstField(string fieldKey) =>
+        _configuredFields.Count == 0 || string.Equals(_configuredFields[0].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsLastField(string fieldKey) =>
+        _configuredFields.Count == 0 || string.Equals(_configuredFields[^1].Key, fieldKey, StringComparison.OrdinalIgnoreCase);
+
+    private int GetFieldPosition(string fieldKey)
+    {
+        var index = _configuredFields.FindIndex(x => string.Equals(x.Key, fieldKey, StringComparison.OrdinalIgnoreCase));
+        return index < 0 ? 0 : index + 1;
+    }
+
+    private string GetDefaultFieldLabel(string fieldKey) =>
+        ChartConfigurationService.GetLabelMap(new ClinicSettings()).GetValueOrDefault(fieldKey, fieldKey);
+
+    private static string GetTemplateExportTargetLabel(WorkflowTemplate template)
+    {
+        var settings = new ClinicSettings
+        {
+            PreferredExportTargetKey = template.PreferredExportTargetKey,
+            ClinicChartExportLabel = template.ClinicChartExportLabel,
+            ClinicChartExportNoteTitle = template.ClinicChartExportNoteTitle,
+            ClinicChartExportDescription = template.ClinicChartExportDescription,
+            PdfAttachmentExportLabel = template.PdfAttachmentExportLabel,
+            PdfAttachmentExportNoteTitle = template.PdfAttachmentExportNoteTitle,
+            PdfAttachmentExportDescription = template.PdfAttachmentExportDescription,
+            PdfAttachmentInstruction = template.PdfAttachmentInstruction
+        };
+
+        return ClinicExportTargets.Resolve(settings, settings.PreferredExportTargetKey).Label;
+    }
+}

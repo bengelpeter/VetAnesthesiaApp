@@ -38,12 +38,13 @@ namespace VetAnesthesiaApp
             builder.Services.AddBlazorWebViewDeveloperTools();
             builder.Logging.AddDebug();
 #endif
-            QuestPDF.Settings.License = LicenseType.Community;
-
 #if ANDROID
             builder.Services.AddScoped<IPdfExportService, AndroidPdfExportService>();
-#else
+#elif WINDOWS
+            QuestPDF.Settings.License = LicenseType.Community;
             builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+#else
+            builder.Services.AddScoped<IPdfExportService, UnsupportedPdfExportService>();
 #endif
             builder.Services.AddScoped<IFileShareService, FileShareService>();
             builder.Services.AddScoped<IPdfSessionExportCoordinator, PdfSessionExportCoordinator>();
@@ -63,24 +64,7 @@ namespace VetAnesthesiaApp
             builder.Services.AddScoped<IBucketService, BucketService>();
 
             builder.Services.AddSingleton<IAnesthesiaRepository, SqliteAnesthesiaRepository>();
-            var app = builder.Build();
-            InitializeDatabase(app);
-            return app;
-        }
-
-        private static void InitializeDatabase(MauiApp app)
-        {
-            try
-            {
-                using var scope = app.Services.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<IAnesthesiaRepository>();
-                repo.InitializeAsync().GetAwaiter().GetResult();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Database initialization failed: {ex}");
-            }
-          
+            return builder.Build();
         }
     }
 }

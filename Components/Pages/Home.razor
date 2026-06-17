@@ -24,6 +24,12 @@
 
         </MudButton>
 
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Secondary"
+                   OnClick="OpenWorkflowSetup">
+            Workflow Setup
+        </MudButton>
+
     </MudStack>
 
 </MudPaper>
@@ -132,5 +138,10 @@
     private void EditAnimal(Guid animalId)
     {
         Nav.NavigateTo($"/animal/edit/{animalId}");
+    }
+
+    private void OpenWorkflowSetup()
+    {
+        Nav.NavigateTo("/workflow-setup");
     }
 }
